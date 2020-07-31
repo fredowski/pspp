@@ -13,7 +13,7 @@ cd ..
 sswversion=0.6
 curl -o ssw.tgz http://alpha.gnu.org/gnu/ssw/spread-sheet-widget-$sswversion.tar.gz
 tar -xzf ssw.tgz
-pushd spread-sheet-widget-$sswversion
+cd spread-sheet-widget-$sswversion
 ./configure --prefix=$bundleinstall
 sudo make install
-popd
+cd ..

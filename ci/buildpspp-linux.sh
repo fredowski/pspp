@@ -20,11 +20,11 @@ psppversion=$repoversion-g$gitversion
 cd ..    
 # Configure and build pspp
 mkdir ./build
-pushd build
+cd build
 $psppsource/configure --prefix=$bundleinstall
 make VERSION=$psppversion
 make check
 make html
 sudo make install
 sudo make install-html
-popd
+cd ..
