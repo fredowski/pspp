@@ -1,5 +1,6 @@
 language: c
 os: linux
+dist: bionic
 env:
 - COLUMNS=78
 before_install:
