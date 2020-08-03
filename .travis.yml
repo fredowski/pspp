@@ -11,9 +11,11 @@ before_install:
 - sudo apt install -y gperf
 - ./ci/prepare.sh
 - ./ci/buildssw.sh
+before_script:
+  - make -f Smake
+  - ./ci/buildpspp-linux.sh
 script:
-- make -f Smake
-- ./ci/buildpspp-linux.sh
-- cd ../build
-- make check
+  - cd ../build
+  - make check
+
 
