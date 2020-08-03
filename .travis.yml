@@ -12,4 +12,8 @@ before_install:
 - ./ci/prepare.sh
 - ./ci/buildssw.sh
 script:
+- make -f Smake
 - ./ci/buildpspp-linux.sh
+- cd ../build
+- make check
+
