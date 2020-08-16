@@ -17,7 +17,7 @@
 
 <!-- Generated with glade 3.18.3 -->
 <interface>
-  <requires lib="gtk+" version="3.4.2"/>
+  <requires lib="gtk+" version="3.22"/>
   <requires lib="psppire" version="0.0"/>
   <object class="GtkAdjustment" id="adjustment1">
     <property name="upper">100</property>
@@ -278,7 +278,7 @@
           </packing>
         </child>
         <child>
-          <object class="PsppireButtonbox" id="psppire-vbuttonbox1">
+          <object class="PsppireButtonBox" id="psppire-vbuttonbox1">
             <property name="orientation">vertical</property>
             <property name="visible">True</property>
             <property name="can_focus">False</property>
