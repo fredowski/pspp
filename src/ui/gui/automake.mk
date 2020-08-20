@@ -348,18 +348,6 @@ nodist_src_ui_gui_psppire_SOURCES = \
 	src/ui/gui/psppire-marshal.h \
 	src/ui/gui/resources.c
 
-yelp-check:
-	@if ! yelp --version > /dev/null 2>&1 ; then \
-		echo    ; \
-		echo '    The Yelp document viewer does not seem to be installed on the system.' ; \
-		echo '    If Yelp is not available at run time, then the PSPPIRE online reference' ; \
-		echo '    manual will not be available.' ; \
-		echo '    Yelp is available from the GNOME project.  ftp://ftp.gnome.org/pub/gnome/sources/yelp' ; \
-		echo ; \
-	fi
-
-PHONY += yelp-check
-
 AM_CPPFLAGS += -Isrc
 
 src/ui/gui/org.fsf.pspp.metainfo.xml: src/ui/gui/org.fsf.pspp.metainfo.xml.in $(POFILES)
@@ -381,7 +369,7 @@ src/ui/gui/resources.c: src/ui/gui/resources.xml
 
 src/ui/gui/psppire-marshal.c: src/ui/gui/marshaller-list
 	$(AM_V_GEN)echo '#include <config.h>' > $@
-	$(AM_V_at)$(GLIB_GENMARSHAL) --body --prefix=psppire_marshal $? >> $@
+	$(AM_V_at)$(GLIB_GENMARSHAL) --body --include-header=ui/gui/psppire-marshal.h --prefix=psppire_marshal $? >> $@
 
 src/ui/gui/psppire-marshal.h: src/ui/gui/marshaller-list
 	$(AM_V_GEN)$(GLIB_GENMARSHAL) --header --prefix=psppire_marshal $? > $@
