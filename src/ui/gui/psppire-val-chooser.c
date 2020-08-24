@@ -37,8 +37,6 @@ static void psppire_val_chooser_init          (PsppireValChooser      *vc);
 
 static void psppire_val_chooser_realize       (GtkWidget *w);
 
-
-
 GType
 psppire_val_chooser_get_type (void)
 {
@@ -49,14 +47,15 @@ psppire_val_chooser_get_type (void)
       static const GTypeInfo psppire_val_chooser_info =
       {
 	sizeof (PsppireValChooserClass),
-	(GBaseInitFunc) psppire_val_chooser_base_init,
-        (GBaseFinalizeFunc) psppire_val_chooser_base_finalize,
-	(GClassInitFunc)psppire_val_chooser_class_init,
+	(GBaseInitFunc) (void (*)(void)) psppire_val_chooser_base_init,
+        (GBaseFinalizeFunc)  (void (*)(void)) psppire_val_chooser_base_finalize,
+	(GClassInitFunc)  (void (*)(void)) psppire_val_chooser_class_init,
 	(GClassFinalizeFunc) NULL,
 	NULL,
         sizeof (PsppireValChooser),
 	0,
-	(GInstanceInitFunc) psppire_val_chooser_init,
+	(GInstanceInitFunc) (void (*)(void)) psppire_val_chooser_init,
+	NULL /* value_table */
       };
 
       psppire_val_chooser_type =
@@ -145,6 +144,7 @@ psppire_val_chooser_get_property (GObject         *object,
       break;
     case PROP_IS_STRING:
       g_value_set_boolean (value, vr->input_var_is_string);
+      break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID (object, prop_id, pspec);
       break;
