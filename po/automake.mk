@@ -126,12 +126,14 @@ CLEAN_LOCAL += po_CLEAN
 # Download the po files from http://translationproject.org
 # The final action to this rule is to remove the .pot file.  This
 # is because the po files must be re-merged against an updated version of it.
+#
+# You can update just one .po file with, e.g.:
+# make po-update POFILES=po/uk.po
 PHONY += po-update
-po-update: $(POFILES)
-	for p in $^; do \
-		wget --recursive --level=1 --accept=po --no-directories --no-use-server-timestamps \
-		--directory-prefix=po -O ${top_srcdir}/$$p,tmp \
+po-update:
+	for p in $(POFILES); do \
+		wget --no-use-server-timestamps -O $$p,tmp \
 		https://translationproject.org/latest/pspp/`basename $$p` ; \
-		mv ${top_srcdir}/$$p,tmp ${top_srcdir}/$$p; \
+		mv $$p,tmp ${top_srcdir}/$$p; \
 	done
 	$(RM) $(POTFILE)
