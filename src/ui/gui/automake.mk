@@ -68,16 +68,7 @@ UI_FILES = \
 	src/ui/gui/var-type-dialog.ui \
 	src/ui/gui/weight.ui
 
-
-$(top_srcdir)/doc/help-pages-list: $(UI_FILES)
-	 $(AM_V_GEN)cat $^ | grep '"help[-_]page"' | \
-   $(SED) -e 's% *<property name="help[-_]page">\([^<]*\)</property>%//*[@id='"'"'\1'"'"']%' \
-	-e 's%#%'"'"']/*[@id='"'"'%g' > $@,tmp
-	test -s $@,tmp
-	mv $@,tmp $@
-
-EXTRA_DIST += doc/help-pages-list
-
+if building_gui
 
 EXTRA_DIST += \
 	src/ui/gui/org.fsf.pspp.metainfo.xml.in \
@@ -173,8 +164,6 @@ src_ui_gui_psppire_SOURCES = \
 	src/ui/gui/psppire.c \
 	src/ui/gui/psppire-data-editor.c \
 	src/ui/gui/psppire-data-editor.h \
-	src/ui/gui/psppire-data-sheet.c \
-	src/ui/gui/psppire-data-sheet.h \
 	src/ui/gui/psppire-data-store.c \
 	src/ui/gui/psppire-data-store.h \
 	src/ui/gui/psppire-data-window.c \
@@ -200,10 +189,6 @@ src_ui_gui_psppire_SOURCES = \
 	src/ui/gui/psppire-syntax-window.h \
 	src/ui/gui/psppire-value-entry.c \
 	src/ui/gui/psppire-value-entry.h \
-	src/ui/gui/psppire-variable-sheet.c \
-	src/ui/gui/psppire-variable-sheet.h \
-	src/ui/gui/psppire-var-sheet-header.c \
-	src/ui/gui/psppire-var-sheet-header.h \
 	src/ui/gui/psppire-window.c \
 	src/ui/gui/psppire-window.h \
 	src/ui/gui/psppire-window-register.c \
@@ -234,6 +219,8 @@ src_ui_gui_libwidgets_essential_la_SOURCES = \
 	src/ui/gui/psppire-checkbox-treeview.h \
 	src/ui/gui/psppire-conf.c \
 	src/ui/gui/psppire-conf.h \
+	src/ui/gui/psppire-data-sheet.c \
+	src/ui/gui/psppire-data-sheet.h \
 	src/ui/gui/psppire-dialog-action-1sks.c \
 	src/ui/gui/psppire-dialog-action-1sks.h \
 	src/ui/gui/psppire-dialog-action-aggregate.c \
@@ -344,6 +331,10 @@ src_ui_gui_libwidgets_essential_la_SOURCES = \
 	src/ui/gui/psppire-var-ptr.h \
 	src/ui/gui/psppire-var-view.c \
 	src/ui/gui/psppire-var-view.h \
+	src/ui/gui/psppire-var-sheet-header.c \
+	src/ui/gui/psppire-var-sheet-header.h \
+	src/ui/gui/psppire-variable-sheet.c \
+	src/ui/gui/psppire-variable-sheet.h \
 	src/ui/gui/psppire-window-base.c \
 	src/ui/gui/psppire-window-base.h \
 	src/ui/gui/dialog-common.c \
@@ -458,7 +449,7 @@ src_ui_gui_libpsppire_glade_la_CFLAGS = $(GTK_CFLAGS) $(AM_CFLAGS)
 if cc_is_gcc
 src_ui_gui_libpsppire_glade_la_CFLAGS += -Wno-unused-parameter
 endif
-src_ui_gui_libpsppire_glade_la_LDFLAGS = -release $(VERSION)
+src_ui_gui_libpsppire_glade_la_LDFLAGS = -release $(VERSION)  $(SPREAD_SHEET_WIDGET_LIBS)
 
 EXTRA_DIST += src/ui/gui/psppire.xml src/ui/gui/glade-wrapper.in
 
@@ -473,3 +464,5 @@ glade-tools: src/ui/gui/glade-wrapper src/ui/gui/libpsppire-glade.la
 # EXTRA_pkgLTLIBRARIES if DESTDIR is set.  It should not do that.
 install-EXTRA_pkgLTLIBRARIES:
 	true
+
+endif
