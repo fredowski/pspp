@@ -70,11 +70,9 @@ EXTRA_DIST += doc/get-commands.pl \
               doc/prepdoc.sh
 
 $(srcdir)/doc/ni.texi: $(top_srcdir)/src/language/command.def doc/get-commands.pl
-	@$(MKDIR_P)  doc
 	$(AM_V_GEN)$(PERL) $(top_srcdir)/doc/get-commands.pl $(top_srcdir)/src/language/command.def > $@
 
 $(srcdir)/doc/tut.texi:
-	@$(MKDIR_P) doc
 	$(AM_V_GEN)echo "@set example-dir $(examplesdir)" > $@
 
 
@@ -82,7 +80,6 @@ doc/pspp.xml: doc/pspp.texi $(doc_pspp_TEXINFOS) doc/help-pages-list
 if BROKEN_DOCBOOK_XML
 	touch $@
 else
-	@$(MKDIR_P)  doc
 	$(AM_V_GEN)$(MAKEINFO) $(AM_MAKEINFOFLAGS) --docbook -I $(top_srcdir) \
 		$< -o $@
 endif
@@ -127,43 +124,84 @@ EXAMPLE_SYNTAX = \
  doc/examples/independent-samples-t.sps \
  doc/examples/reliability.sps \
  doc/examples/split.sps \
+ doc/examples/tutorial1.sps \
+ doc/examples/tutorial2.sps \
+ doc/examples/tutorial3.sps \
+ doc/examples/tutorial4.sps \
+ doc/examples/tutorial5.sps \
+ doc/examples/tutorial6.sps \
+ doc/examples/tutorial7.sps \
  doc/examples/weight.sps
 
 
 EXTRA_DIST += $(EXAMPLE_SYNTAX)
 
-EXAMPLE_OUTPUTS = $(EXAMPLE_SYNTAX:.sps=.out)
-EXAMPLE_HTML = $(EXAMPLE_SYNTAX:.sps=.html)
+EXAMPLE_SPVS = $(EXAMPLE_SYNTAX:.sps=.spv) \
+	doc/examples/tutorial2a.spv \
+	doc/examples/tutorial2b.spv \
+	doc/examples/tutorial5a.spv \
+	doc/examples/tutorial5b.spv \
+	doc/examples/tutorial7a.spv \
+	doc/examples/tutorial7b.spv
+EXAMPLE_TXTS = $(EXAMPLE_SPVS:.spv=.txt)
+EXAMPLE_TEXIS = $(EXAMPLE_TXTS:.txt=.texi)
+EXAMPLE_HTML = $(EXAMPLE_SPVS:.spv=.html)
 
-$(top_builddir)/doc/pspp.info:  $(EXAMPLE_OUTPUTS)
-$(top_builddir)/doc/pspp.ps:    $(EXAMPLE_OUTPUTS)
-$(top_builddir)/doc/pspp.dvi:   $(EXAMPLE_OUTPUTS)
+example-spv: $(EXAMPLE_SPVS)
+example-txts: $(EXAMPLE_TXTS)
+example-texis: $(EXAMPLE_TEXIS)
+example-html: $(EXAMPLE_HTML)
+PHONY += example-spv example-txts example-texis example-html
+
+$(top_builddir)/doc/pspp.info:  $(EXAMPLE_TEXIS)
+$(top_builddir)/doc/pspp.ps:    $(EXAMPLE_TEXIS)
+$(top_builddir)/doc/pspp.dvi:   $(EXAMPLE_TEXIS)
 $(top_builddir)/doc/pspp.html:  $(EXAMPLE_HTML)
-$(top_builddir)/doc/pspp.pdf:   $(EXAMPLE_OUTPUTS)
-$(top_builddir)/doc/pspp.xml:   $(EXAMPLE_OUTPUTS)
+$(top_builddir)/doc/pspp.pdf:   $(EXAMPLE_TEXIS)
+$(top_builddir)/doc/pspp.xml:   $(EXAMPLE_TEXIS)
 
-# The examples cannot be built until the binary has been built
-$(EXAMPLE_OUTPUTS): $(top_builddir)/src/ui/terminal/pspp
-$(EXAMPLE_HTML): $(top_builddir)/src/ui/terminal/pspp
+CLEANFILES += $(EXAMPLE_TXTS) $(EXAMPLE_SPVS) $(EXAMPLE_TEXIS) $(EXAMPLE_HTML)
+SUFFIXES += .sps .spv .txt .html .texi
 
-CLEANFILES += $(EXAMPLE_OUTPUTS)
+# Use pspp to process a syntax file into an output file.
+pspp = src/ui/terminal/pspp
+$(EXAMPLE_SPVS): $(pspp)
+.sps.spv:
+	$(AM_V_GEN)(cd $(top_srcdir)/examples \
+         && $(abs_top_builddir)/$(pspp) ../doc/examples/$(<F) -o - -O format=spv) > $@.tmp
+	$(AM_V_at)mv $@.tmp $@
 
-SUFFIXES: .sps
+# In some cases, the tutorial only wants some parts of the output.
+pspp_output = utilities/pspp-output
+convert = $(AM_V_GEN)$(pspp_output) convert $< $@
+doc/examples/tutorial2a.spv: doc/examples/tutorial2.spv $(pspp_output)
+	$(convert) --command='Descriptives'
+doc/examples/tutorial2b.spv: doc/examples/tutorial2.spv $(pspp_output)
+	$(convert) --label='Extreme Values'
+doc/examples/tutorial5a.spv: doc/examples/tutorial5.spv $(pspp_output)
+	$(convert) --commands=examine --nth-command=1 --labels=descriptives
+doc/examples/tutorial5b.spv: doc/examples/tutorial5.spv $(pspp_output)
+	$(convert) --commands=examine --nth-command=2 --labels=descriptives
+doc/examples/tutorial7a.spv: doc/examples/tutorial7.spv $(pspp_output)
+	$(convert) --commands=regression --nth-command=1 --subtypes=coefficients
+doc/examples/tutorial7b.spv: doc/examples/tutorial7.spv $(pspp_output)
+	$(convert) --commands=regression --nth-command=2 --subtypes=coefficients
 
-# use pspp to process a syntax file and reap the output into a text file
-.sps.out:
-	$(MKDIR_P) $(@D)
-	where=$$PWD ; \
-	(cd $(top_srcdir)/examples; ${abs_builddir}/src/ui/terminal/pspp $(abs_srcdir)/doc/examples/$(<F) -o $$where/$@)
+# Convert an output file into a text file or HTML file.
+#
+# (For HTML, use sed to include only the contents of <body>.)
+$(EXAMPLE_TXTS) $(EXAMPLE_HTML): $(pspp_output)
+.spv.txt:
+	$(AM_V_GEN)utilities/pspp-output convert $< $@
+.spv.html:
+	$(AM_V_GEN)utilities/pspp-output convert $< - -O format=html \
+	| $(SED) -e '\%</body%,$$d' -e '0,/<body/d' > $@.tmp
+	$(AM_V_at)mv $@.tmp $@
 
-# Use pspp to process a syntax file and reap the output into a html file
-# Then, use sed to delete everything up to and including <body> and
-# everything after and including </body>
-.sps.html:
-	$(MKDIR_P) $(@D)
-	where=$$PWD ; \
-	(cd $(top_srcdir)/examples; ${abs_builddir}/src/ui/terminal/pspp $(abs_srcdir)/doc/examples/$(<F) -o $$where/$@,x -O format=html)
-	$(SED) -e '\%</body%,$$d' -e '0,/<body/d' $@,x > $@
+# Convert a text file into a Texinfo file.
+.txt.texi:
+	$(AM_V_GEN)sed 's/@/@@/g' < $< > $@.tmp
+	$(AM_V_at)mv $@.tmp $@
 
 # Insert the link tag for the cascading style sheet.
 # But make sure these operations are idempotent.
@@ -181,7 +219,6 @@ install-html-local: html-local
 
 
 
-mimedir = $(datadir)/mime/packages
 desktopdir = $(datadir)/applications
 
 doc/org.fsf.pspp.metainfo.xml: doc/org.fsf.pspp.metainfo.xml.in $(POFILES)
