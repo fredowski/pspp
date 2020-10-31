@@ -1,5 +1,5 @@
 @c PSPP - a program for statistical analysis.
-@c Copyright (C) 2017 Free Software Foundation, Inc.
+@c Copyright (C) 2017, 2020 Free Software Foundation, Inc.
 @c Permission is granted to copy, distribute and/or modify this document
 @c under the terms of the GNU Free Documentation License, Version 1.3
 @c or any later version published by the Free Software Foundation;
@@ -122,7 +122,7 @@ variable PRINT would not be substituted into the word PRINTOUT.
 
 New variable names used as replacements are not automatically created
 as variables, but only if used in the code block in a context that
-would create them, e.g.@: on a @cmd{NUMERIC} or @cmd{STRING} command
+would create them, @i{e.g.}@: on a @cmd{NUMERIC} or @cmd{STRING} command
 or on the left side of a @cmd{COMPUTE} assignment.
 
 Any command may appear within @subcmd{DO REPEAT}, including nested @subcmd{DO REPEAT}

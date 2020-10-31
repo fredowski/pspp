@@ -1,5 +1,5 @@
 @c PSPP - a program for statistical analysis.
-@c Copyright (C) 2017 Free Software Foundation, Inc.
+@c Copyright (C) 2017, 2020 Free Software Foundation, Inc.
 @c Permission is granted to copy, distribute and/or modify this document
 @c under the terms of the GNU Free Documentation License, Version 1.3
 @c or any later version published by the Free Software Foundation;
@@ -26,8 +26,8 @@ but it shows how such analysis can be performed using @pspp{}.
 For the purposes of this tutorial, it is assumed that you are using @pspp{} in its
 interactive mode from the command line.
 However, the example commands can also be typed into a file and executed in
-a post-hoc mode by typing @samp{pspp @var{filename}} at a shell prompt,
-where @var{filename} is the name of the file containing the commands.
+a post-hoc mode by typing @samp{pspp @var{file-name}} at a shell prompt,
+where @var{file-name} is the name of the file containing the commands.
 Alternatively, from the graphical interface, you can select
 @clicksequence{File @click{} New @click{} Syntax} to open a new syntax window
 and use the @clicksequence{Run} menu when a syntax fragment is ready to be

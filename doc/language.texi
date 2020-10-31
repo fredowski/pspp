@@ -1,5 +1,5 @@
 @c PSPP - a program for statistical analysis.
-@c Copyright (C) 2017 Free Software Foundation, Inc.
+@c Copyright (C) 2017, 2020 Free Software Foundation, Inc.
 @c Permission is granted to copy, distribute and/or modify this document
 @c under the terms of the GNU Free Documentation License, Version 1.3
 @c or any later version published by the Free Software Foundation;
@@ -13,7 +13,7 @@
 @cindex @pspp{}, language
 
 This chapter discusses elements common to many @pspp{} commands.
-Later chapters will describe individual commands in detail.
+Later chapters describe individual commands in detail.
 
 @menu
 * Tokens::                      Characters combine to form tokens.
@@ -104,7 +104,7 @@ number.
 No white space is allowed within a number token, except for horizontal
 white space between @samp{-} and the rest of the number.
 
-The last example above, @samp{8945.} will be interpreted as two
+The last example above, @samp{8945.} is interpreted as two
 tokens, @samp{8945} and @samp{.}, if it is the last token on a line.
 @xref{Commands, , Forming commands of tokens}.
 
@@ -115,7 +115,7 @@ tokens, @samp{8945} and @samp{.}, if it is the last token on a line.
 @cindex case-sensitivity
 Strings are literal sequences of characters enclosed in pairs of
 single quotes (@samp{'}) or double quotes (@samp{"}).  To include the
-character used for quoting in the string, double it, e.g.@:
+character used for quoting in the string, double it, @i{e.g.}@:
 @samp{'it''s an apostrophe'}.  White space and case of letters are
 significant inside strings.
 
@@ -158,7 +158,7 @@ Most of these appear within the syntax of commands, but the period
 punctuator only as the last character on a line (except white space).
 When it is the last non-space character on a line, a period is not
 treated as part of another token, even if it would otherwise be part
-of, e.g.@:, an identifier or a floating-point number.
+of, @i{e.g.}@:, an identifier or a floating-point number.
 @end table
 
 @node Commands
@@ -440,7 +440,7 @@ variables' names may not begin with @samp{$}.
 @cindex variable names, ending with period
 The final character in a variable name should not be @samp{.}, because
 such an identifier will be misinterpreted when it is the final token
-on a line: @code{FOO.} will be divided into two separate tokens,
+on a line: @code{FOO.} is divided into two separate tokens,
 @samp{FOO} and @samp{.}, indicating end-of-command.  @xref{Tokens}.
 
 @cindex @samp{_}
@@ -813,7 +813,7 @@ In scientific notation, the exponent is output as @samp{E} followed by
 @samp{+} or @samp{-} and exactly three digits.  Numbers with magnitude
 less than 10**-999 or larger than 10**999 are not supported by most
 computers, but if they are supported then their output is considered
-to overflow the field and will be output as asterisks.
+to overflow the field and they are output as asterisks.
 
 @item
 On most computers, no more than 15 decimal digits are significant in
@@ -826,7 +826,7 @@ calculations may also reduce precision of output.
 Special values such as infinities and ``not a number'' values are
 usually converted to the system-missing value before printing.  In a few
 circumstances, these values are output directly.  In fields of width 3
-or greater, special values are output as however many characters will
+or greater, special values are output as however many characters
 fit from @code{+Infinity} or @code{-Infinity} for infinities, from
 @code{NaN} for ``not a number,'' or from @code{Unknown} for other values
 (if any are supported by the system).  In fields under 3 columns wide,
@@ -850,8 +850,8 @@ characters long.
 @var{string} must contain exactly three commas or exactly three periods
 (but not both), except that a single quote character may be used to
 ``escape'' a following comma, period, or single quote.  If three commas
-are used, commas will be used for grouping in output, and a period will
-be used as the decimal point.  Uses of periods reverses these roles.
+are used, commas are used for grouping in output, and a period
+is used as the decimal point.  Uses of periods reverses these roles.
 
 The commas or periods divide @var{string} into four fields, called the
 @dfn{negative prefix}, @dfn{prefix}, @dfn{suffix}, and @dfn{negative
@@ -1053,7 +1053,7 @@ WRB}).
 The recommended field width depends on the floating-point format.
 NATIVE (the default format), IDL, IDB, VD, VG, and ZL formats should use
 a field width of 8.  ISL, ISB, VF, and ZS formats should use a field
-width of 4.  Other field widths will not produce useful results.  The
+width of 4.  Other field widths do not produce useful results.  The
 maximum field width is 8.  No decimal places may be specified.
 
 The default output format is F8.2.
@@ -1217,11 +1217,11 @@ In the table, ``Option'' describes what increased output width enables:
 
 @table @asis
 @item 4-digit year
-A field 2 columns wider than minimum will include a 4-digit year.
+A field 2 columns wider than the minimum includes a 4-digit year.
 (DATETIME and YMDHMS formats always include a 4-digit year.)
 
 @item seconds
-A field 3 columns wider than minimum will include seconds as well as
+A field 3 columns wider than the minimum includes seconds as well as
 minutes.  A field 5 columns wider than minimum, or more, can also
 include a decimal point and fractional seconds (but no more than allowed
 by the format's decimal places).
@@ -1235,7 +1235,7 @@ Time or dates narrower than the field width are right-justified within
 the field.
 
 When a time or date exceeds the field width, characters are trimmed from
-the end until it fits.  This can occur in an unusual situation, e.g.@:
+the end until it fits.  This can occur in an unusual situation, @i{e.g.}@:
 with a year greater than 9999 (which adds an extra digit), or for a
 negative value on MTIME, TIME, or DTIME (which adds a leading minus sign).
 
@@ -1366,9 +1366,9 @@ name of a file as a string, that is, enclosed within @samp{'} or
 A file name string that begins or ends with @samp{|} is treated as the
 name of a command to pipe data to or from.  You can use this feature
 to read data over the network using a program such as @samp{curl}
-(e.g.@: @code{GET '|curl -s -S http://example.com/mydata.sav'}), to
+(@i{e.g.}@: @code{GET '|curl -s -S http://example.com/mydata.sav'}), to
 read compressed data from a file using a program such as @samp{zcat}
-(e.g.@: @code{GET '|zcat mydata.sav.gz'}), and for many other
+(@i{e.g.}@: @code{GET '|zcat mydata.sav.gz'}), and for many other
 purposes.
 
 @pspp{} also supports declaring named file handles with the @cmd{FILE
@@ -1382,9 +1382,9 @@ for more information.
 
 In some circumstances, @pspp{} must distinguish whether a file handle
 refers to a system file or a portable file.  When this is necessary to
-read a file, e.g.@: as an input file for @cmd{GET} or @cmd{MATCH FILES},
+read a file, @i{e.g.}@: as an input file for @cmd{GET} or @cmd{MATCH FILES},
 @pspp{} uses the file's contents to decide.  In the context of writing a
-file, e.g.@: as an output file for @cmd{SAVE} or @cmd{AGGREGATE}, @pspp{}
+file, @i{e.g.}@: as an output file for @cmd{SAVE} or @cmd{AGGREGATE}, @pspp{}
 decides based on the file's name: if it ends in @samp{.por} (with any
 capitalization), then @pspp{} writes a portable file; otherwise, @pspp{}
 writes a system file.
