@@ -10,7 +10,7 @@ bundleinstall=/usr
 cd ..
 
 #Download and install spread-sheet-widget
-sswversion=0.6
+sswversion=0.7
 curl -o ssw.tgz http://alpha.gnu.org/gnu/ssw/spread-sheet-widget-$sswversion.tar.gz
 tar -xzf ssw.tgz
 cd spread-sheet-widget-$sswversion

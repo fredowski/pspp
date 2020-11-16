@@ -14,7 +14,7 @@ fi
 
 cd ..
 #Download gnulib
-gnulibver=d6dabe8eece3a9c1269dc1c084531ce447c7a42e
+gnulibver=0edaafc813caff4101c58405c6ab279597afc0b9
 curl -o gnulib.zip https://codeload.github.com/coreutils/gnulib/zip/$gnulibver
 unzip -q gnulib.zip
 rm gnulib.zip
