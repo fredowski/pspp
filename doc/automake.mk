@@ -111,7 +111,8 @@ am__TEXINFO_TEX_DIR=:$(top_srcdir)/doc:$(top_builddir)/doc
 ################# Example programs ##############################
 
 FIGURE_SYNTAX = \
- doc/pspp-figures/autorecode.sps \
+ doc/pspp-figures/aggregate.sps \
+doc/pspp-figures/autorecode.sps \
  doc/pspp-figures/chisquare.sps \
  doc/pspp-figures/compute.sps \
  doc/pspp-figures/count.sps \
@@ -122,7 +123,10 @@ FIGURE_SYNTAX = \
  doc/pspp-figures/one-sample-t.sps \
  doc/pspp-figures/independent-samples-t.sps \
  doc/pspp-figures/reliability.sps \
+ doc/pspp-figures/select-if.sps \
+ doc/pspp-figures/sort-cases.sps \
  doc/pspp-figures/split.sps \
+ doc/pspp-figures/temporary.sps \
  doc/pspp-figures/tutorial1.sps \
  doc/pspp-figures/tutorial2.sps \
  doc/pspp-figures/tutorial3.sps \

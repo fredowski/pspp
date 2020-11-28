@@ -224,6 +224,34 @@ causes the period to be interpreted as the end of the command.)
 @cmd{AGGREGATE} both ignores and cancels the current @cmd{SPLIT FILE}
 settings (@pxref{SPLIT FILE}).
 
+@subsection Aggregate Example
+
+The @file{personnel.sav} dataset provides the occupations and salaries of
+many individuals.  For many purposes however such detailed information is
+not interesting, but often the aggregated statistics of each occupation are
+of interest.  In @ref{aggregate:ex} the @cmd{AGGREGATE} command is used
+to calculate the mean, the median and the standard deviation of each
+occupation.
+
+@float Example, aggregate:ex
+@psppsyntax {aggregate.sps}
+@caption {Calculating aggregated statistics from the @file{personnel.sav} file.}
+@end float
+
+Since we chose the @samp{MODE = REPLACE} option, in @ref{aggregate:res} cases
+for the individual persons are no longer present.  They have each been replaced
+by a single case per aggregated value.
+
+@float Results, aggregate:res
+@psppoutput {aggregate}
+@caption {Aggregated mean, median and standard deviation per @exvar{occupation}.}
+@end float
+
+Note that some values for the standard deviation are blank.
+This is because there is only one case with the respective
+occupation.
+
+
 @node AUTORECODE
 @section AUTORECODE
 @vindex AUTORECODE
@@ -813,10 +841,33 @@ cases.
 @cmd{SORT CASES} is a procedure.  It causes the data to be read.
 
 @cmd{SORT CASES} attempts to sort the entire active dataset in main memory.
-If workspace is exhausted, it falls back to a merge sort algorithm that
-involves creates numerous temporary files.
+If workspace is exhausted, it falls back to a merge sort algorithm which
+creates numerous temporary files.
 
 @cmd{SORT CASES} may not be specified following @cmd{TEMPORARY}.
 
 @subsection Sorting Example
 
+In @ref{sort-cases:ex} the data from the file @file {physiology.sav} is sorted
+by two variables, @i{viz@:} @exvar{sex} in descending order and @exvar{temperature} in
+ascending order.
+
+@float Example, sort-cases:ex
+@psppsyntax {sort-cases.sps}
+@caption {Sorting cases  by two variables.}
+@end float
+
+In @ref{sort-cases:res} you can see that all the cases with a @exvar{sex} of
+@samp{1} (female) appear before those with a sex of @samp{0} (male).
+This is because they have been sorted in descending order.
+Within each sex, the data is sorted on the @exvar{temperature} variable,
+this time in ascending order.
+
+@float Results, sort-cases:res
+@psppoutput {sort-cases}
+@caption {The @file{physiology.sav} file after sorting.}
+@end float
+
+Note that @cmd{SORT CASES}, like all other transformations, affects only the active file.
+It does not have any effect upon the @file{physiology.sav} file itself. For that, you
+would have to rewrite the file using the @cmd{SAVE} command (@pxref{SAVE}).
