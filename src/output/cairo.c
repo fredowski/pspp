@@ -168,16 +168,11 @@ struct xr_driver
     struct render_params *params;
     double font_scale;
     int char_width, char_height;
-    char *command_name;
-    char *title;
-    char *subtitle;
     cairo_t *cairo;
     cairo_surface_t *surface;
     int page_number;		/* Current page number. */
-    int x, y;
+    int y;
     struct xr_render_fsm *fsm;
-    int nest;
-    struct string_map heading_vars;
   };
 
 static const struct output_driver_class cairo_driver_class;
@@ -606,8 +601,6 @@ xr_allocate (const char *name, int device_type, struct string_map *o,
 
   output_driver_init (d, &cairo_driver_class, name, device_type);
 
-  string_map_init (&xr->heading_vars);
-
   /* This is a nasty kluge for an issue that does not make sense.  On any
      surface other than a screen (e.g. for output to PDF or PS or SVG), the
      fonts are way too big by default.  A "9-point" font seems to appear about
@@ -817,17 +810,13 @@ xr_set_cairo (struct xr_driver *xr, cairo_t *cairo)
 }
 
 static struct output_driver *
-xr_create (const char *file_name, enum settings_output_devices device_type,
+xr_create (struct file_handle *fh, enum settings_output_devices device_type,
            struct string_map *o, enum xr_output_type file_type)
 {
-  struct xr_driver *xr;
-  cairo_status_t status;
-  double width_pt, length_pt;
-
-  xr = xr_allocate (file_name, device_type, o, 72.0 / 128.0);
-
-  width_pt = xr_to_pt (xr->width + xr->left_margin + xr->right_margin);
-  length_pt = xr_to_pt (xr->length + xr->top_margin + xr->bottom_margin);
+  const char *file_name = fh_get_file_name (fh);
+  struct xr_driver *xr = xr_allocate (file_name, device_type, o, 72.0 / 128.0);
+  double width_pt = xr_to_pt (xr->width + xr->left_margin + xr->right_margin);
+  double length_pt = xr_to_pt (xr->length + xr->top_margin + xr->bottom_margin);
   if (file_type == XR_PDF)
     xr->surface = cairo_pdf_surface_create (file_name, width_pt, length_pt);
   else if (file_type == XR_PS)
@@ -837,20 +826,22 @@ xr_create (const char *file_name, enum settings_output_devices device_type,
   else
     NOT_REACHED ();
 
-  status = cairo_surface_status (xr->surface);
+  cairo_status_t status = cairo_surface_status (xr->surface);
   if (status != CAIRO_STATUS_SUCCESS)
     {
       msg (ME, _("error opening output file `%s': %s"),
-             file_name, cairo_status_to_string (status));
+           file_name, cairo_status_to_string (status));
       goto error;
     }
 
   if (!xr_check_fonts (xr->surface, xr->fonts, xr->width, xr->length))
     goto error;
 
+  fh_unref (fh);
   return &xr->driver;
 
  error:
+  fh_unref (fh);
   output_driver_destroy (&xr->driver);
   return NULL;
 }
@@ -859,27 +850,21 @@ static struct output_driver *
 xr_pdf_create (struct  file_handle *fh, enum settings_output_devices device_type,
                struct string_map *o)
 {
-  struct output_driver *od = xr_create (fh_get_file_name (fh), device_type, o, XR_PDF);
-  fh_unref (fh);
-  return od ;
+  return xr_create (fh, device_type, o, XR_PDF);
 }
 
 static struct output_driver *
 xr_ps_create (struct  file_handle *fh, enum settings_output_devices device_type,
                struct string_map *o)
 {
-  struct output_driver *od =  xr_create (fh_get_file_name (fh), device_type, o, XR_PS);
-  fh_unref (fh);
-  return od ;
+  return xr_create (fh, device_type, o, XR_PS);
 }
 
 static struct output_driver *
 xr_svg_create (struct file_handle *fh, enum settings_output_devices device_type,
                struct string_map *o)
 {
-  struct output_driver *od = xr_create (fh_get_file_name (fh), device_type, o, XR_SVG);
-  fh_unref (fh);
-  return od ;
+  return xr_create (fh, device_type, o, XR_SVG);
 }
 
 static void
@@ -1025,7 +1010,7 @@ xr_driver_next_page (struct xr_driver *xr, cairo_t *cairo)
 
   xr->page_number++;
   xr->cairo = cairo;
-  xr->x = xr->y = 0;
+  xr->y = 0;
 
   xr_render_page_heading (xr->cairo, xr->fonts[XR_FONT_PROPORTIONAL].desc,
                           &xr->headings[0], xr->page_number, xr->width, true,
@@ -1107,8 +1092,8 @@ dump_line (struct xr_driver *xr, int x0, int y0, int x1, int y1, int style,
     xr_to_pt (style == RENDER_LINE_THICK ? XR_LINE_WIDTH * 2
               : style == RENDER_LINE_THIN ? XR_LINE_WIDTH / 2
               : XR_LINE_WIDTH));
-  cairo_move_to (xr->cairo, xr_to_pt (x0 + xr->x), xr_to_pt (y0 + xr->y));
-  cairo_line_to (xr->cairo, xr_to_pt (x1 + xr->x), xr_to_pt (y1 + xr->y));
+  cairo_move_to (xr->cairo, xr_to_pt (x0), xr_to_pt (y0 + xr->y));
+  cairo_line_to (xr->cairo, xr_to_pt (x1), xr_to_pt (y1 + xr->y));
   cairo_stroke (xr->cairo);
 }
 
@@ -1117,12 +1102,12 @@ dump_rectangle (struct xr_driver *xr, int x0, int y0, int x1, int y1)
 {
   cairo_new_path (xr->cairo);
   cairo_set_line_width (xr->cairo, xr_to_pt (XR_LINE_WIDTH));
-  cairo_move_to (xr->cairo, xr_to_pt (x0 + xr->x), xr_to_pt (y0 + xr->y));
-  cairo_line_to (xr->cairo, xr_to_pt (x1 + xr->x), xr_to_pt (y0 + xr->y));
-  cairo_line_to (xr->cairo, xr_to_pt (x1 + xr->x), xr_to_pt (y1 + xr->y));
-  cairo_line_to (xr->cairo, xr_to_pt (x0 + xr->x), xr_to_pt (y1 + xr->y));
   cairo_close_path (xr->cairo);
   cairo_stroke (xr->cairo);
+  cairo_move_to (xr->cairo, xr_to_pt (x0), xr_to_pt (y0 + xr->y));
+  cairo_line_to (xr->cairo, xr_to_pt (x1), xr_to_pt (y0 + xr->y));
+  cairo_line_to (xr->cairo, xr_to_pt (x1), xr_to_pt (y1 + xr->y));
+  cairo_line_to (xr->cairo, xr_to_pt (x0), xr_to_pt (y1 + xr->y));
 }
 
 static void
@@ -1131,7 +1116,7 @@ fill_rectangle (struct xr_driver *xr, int x0, int y0, int x1, int y1)
   cairo_new_path (xr->cairo);
   cairo_set_line_width (xr->cairo, xr_to_pt (XR_LINE_WIDTH));
   cairo_rectangle (xr->cairo,
-                   xr_to_pt (x0 + xr->x), xr_to_pt (y0 + xr->y),
+                   xr_to_pt (x0), xr_to_pt (y0 + xr->y),
                    xr_to_pt (x1 - x0), xr_to_pt (y1 - y0));
   cairo_fill (xr->cairo);
 }
@@ -1434,9 +1419,9 @@ xr_clip (struct xr_driver *xr, int clip[TABLE_N_AXES][2])
 {
   if (clip[H][1] != INT_MAX || clip[V][1] != INT_MAX)
     {
-      double x0 = xr_to_pt (clip[H][0] + xr->x);
+      double x0 = xr_to_pt (clip[H][0]);
       double y0 = xr_to_pt (clip[V][0] + xr->y);
-      double x1 = xr_to_pt (clip[H][1] + xr->x);
+      double x1 = xr_to_pt (clip[H][1]);
       double y1 = xr_to_pt (clip[V][1] + xr->y);
 
       cairo_rectangle (xr->cairo, x0, y0, x1 - x0, y1 - y0);
@@ -1706,13 +1691,13 @@ xr_layout_cell_text (struct xr_driver *xr, const struct table_cell *cell,
       if (options & TAB_ROTATE)
         {
           cairo_translate (xr->cairo,
-                           xr_to_pt (bb[H][0] + xr->x),
+                           xr_to_pt (bb[H][0]),
                            xr_to_pt (bb[V][1] + xr->y));
           cairo_rotate (xr->cairo, -M_PI_2);
         }
       else
         cairo_translate (xr->cairo,
-                         xr_to_pt (bb[H][0] + xr->x),
+                         xr_to_pt (bb[H][0]),
                          xr_to_pt (bb[V][0] + xr->y));
       pango_cairo_show_layout (xr->cairo, font->layout);
 
@@ -1731,9 +1716,9 @@ xr_layout_cell_text (struct xr_driver *xr, const struct table_cell *cell,
               cairo_save (xr->cairo);
               cairo_set_source_rgb (xr->cairo, 1, 0, 0);
               dump_rectangle (xr,
-                              pango_to_xr (extents.x) - xr->x,
+                              pango_to_xr (extents.x),
                               pango_to_xr (extents.y) - xr->y,
-                              pango_to_xr (extents.x + extents.width) - xr->x,
+                              pango_to_xr (extents.x + extents.width),
                               pango_to_xr (extents.y + extents.height) - xr->y);
               cairo_restore (xr->cairo);
             }
@@ -1787,7 +1772,7 @@ xr_layout_cell_text (struct xr_driver *xr, const struct table_cell *cell,
          be useful for debugging issues with breaking.  */
       if (0)
         {
-          if (best && !xr->nest)
+          if (best)
             dump_line (xr, -xr->left_margin, best,
                        xr->width + xr->right_margin, best,
                        RENDER_LINE_SINGLE,
@@ -1820,13 +1805,9 @@ xr_layout_cell (struct xr_driver *xr, const struct table_cell *cell,
     {
       if (clip[H][0] != clip[H][1])
         {
-          int offset = (xr->nest) * XR_POINT;
-
           cairo_save (xr->cairo);
           cairo_set_source_rgb (xr->cairo, 0, 0, 1);
-          dump_rectangle (xr,
-                          bb[H][0] + offset, bb[V][0] + offset,
-                          bb[H][1] - offset, bb[V][1] - offset);
+          dump_rectangle (xr, bb[H][0], bb[V][0], bb[H][1], bb[V][1]);
           cairo_restore (xr->cairo);
         }
     }
@@ -2250,12 +2231,10 @@ static struct xr_render_fsm *
 xr_render_text (struct xr_driver *xr, const struct text_item *text_item)
 {
   enum text_item_type type = text_item_get_type (text_item);
-  const char *text = text_item_get_text (text_item);
 
   switch (type)
     {
     case TEXT_ITEM_PAGE_TITLE:
-      string_map_replace (&xr->heading_vars, "PageTitle", text);
       break;
 
     case TEXT_ITEM_EJECT_PAGE:
