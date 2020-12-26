@@ -39,6 +39,10 @@ struct xr_page_style
 
     int initial_page_number;
     int object_spacing;
+
+    /* Whether to include an outline in PDF output.  (The only reason I know to
+       omit it is to avoid a Cairo bug that caused crashes in some cases.) */
+    bool include_outline;
   };
 struct xr_page_style *xr_page_style_ref (const struct xr_page_style *);
 struct xr_page_style *xr_page_style_unshare (struct xr_page_style *);
@@ -63,6 +67,7 @@ void xr_pager_add_item (struct xr_pager *, const struct output_item *);
 
 bool xr_pager_has_page (const struct xr_pager *);
 void xr_pager_add_page (struct xr_pager *, cairo_t *);
+void xr_pager_finish_page (struct xr_pager *);
 bool xr_pager_needs_new_page (struct xr_pager *);
 
 #endif  /* HAVE_CAIRO */
