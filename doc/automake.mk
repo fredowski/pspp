@@ -51,6 +51,7 @@ doc_pspp_TEXINFOS = doc/version.texi \
 doc_pspp_dev_TEXINFOS = doc/version-dev.texi \
 	doc/dev/intro.texi \
 	doc/dev/concepts.texi \
+	doc/dev/gui.texi \
 	doc/dev/syntax.texi \
 	doc/dev/data.texi \
 	doc/dev/i18n.texi \
@@ -116,6 +117,7 @@ FIGURE_SYNTAX = \
  doc/pspp-figures/chisquare.sps \
  doc/pspp-figures/compute.sps \
  doc/pspp-figures/count.sps \
+ doc/pspp-figures/crosstabs.sps \
  doc/pspp-figures/descriptives.sps \
  doc/pspp-figures/flip.sps \
  doc/pspp-figures/frequencies.sps \
@@ -188,7 +190,7 @@ pspp_output = native/utilities/pspp-output
 
 native/Makefile:
 	$(MKDIR_P) native
-	(cd native && $(top_srcdir)/configure --without-gui)
+	(cd native && $(abs_top_srcdir)/configure --host=$$build --without-gui)
 
 native/gl/libgl.la: native/Makefile
 	(cd native && flock --verbose $(top_builddir)/native-lock $(MAKE) gl/libgl.la)
@@ -294,6 +296,7 @@ $(top_srcdir)/doc/screenshots/chisquare.grab \
 $(top_srcdir)/doc/screenshots/count.grab \
 $(top_srcdir)/doc/screenshots/count-define.grab \
 $(top_srcdir)/doc/screenshots/compute.grab \
+$(top_srcdir)/doc/screenshots/crosstabs.grab \
 $(top_srcdir)/doc/screenshots/descriptives.grab \
 $(top_srcdir)/doc/screenshots/one-sample-t.grab \
 $(top_srcdir)/doc/screenshots/independent-samples-t.grab \
