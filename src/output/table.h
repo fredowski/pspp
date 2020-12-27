@@ -241,29 +241,6 @@ struct table *table_ref (const struct table *);
 void table_unref (struct table *);
 bool table_is_shared (const struct table *);
 
-/* Returns the number of columns or rows, respectively, in T. */
-static inline int table_nc (const struct table *t)
-        { return t->n[TABLE_HORZ]; }
-static inline int table_nr (const struct table *t)
-        { return t->n[TABLE_VERT]; }
-
-/* Returns the number of left, right, top, or bottom headers, respectively, in
-   T.  */
-static inline int table_hl (const struct table *t)
-        { return t->h[TABLE_HORZ][0]; }
-static inline int table_hr (const struct table *t)
-        { return t->h[TABLE_HORZ][1]; }
-static inline int table_ht (const struct table *t)
-        { return t->h[TABLE_VERT][0]; }
-static inline int table_hb (const struct table *t)
-        { return t->h[TABLE_VERT][1]; }
-
-/* Simple kinds of output. */
-struct table *table_from_string (const char *);
-void table_output_text (int options, const char *string);
-void table_output_text_format (int options, const char *, ...)
-  PRINTF_FORMAT (2, 3);
-
 /* Rule masks. */
 #define TAB_RULE_TYPE_MASK   7
 #define TAB_RULE_TYPE_SHIFT  0
