@@ -161,7 +161,7 @@ put_header (struct html_driver *html)
 	     "caption {\n"
 	     "  text-align: left\n"
 	     "}\n"
-
+	     "th { font-weight: normal }\n"
 	     "a:link {\n"
 	     "  color: #1f00ff;\n"
 	     "}\n"
@@ -646,6 +646,9 @@ html_output_table (struct html_driver *html, const struct table_item *item)
               /* Do nothing */
               break;
             }
+
+          if (cell.options & TAB_ROTATE)
+            put_style (&style, "writing-mode", "sideways-lr");
 
           if (cell.style->cell_style.valign != TABLE_VALIGN_TOP)
             {
