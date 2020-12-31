@@ -44,7 +44,9 @@ find_category (const struct pivot_dimension *d, int dim_index,
   for (const struct pivot_category *c = d->presentation_leaves[index];
        c; c = c->parent)
     {
-      if (!row_ofs)
+      /* A category can covert multiple rows.  Only return the category for its
+         top row. */
+      if (row_ofs == c->extra_depth)
         return c;
 
       row_ofs -= 1 + c->extra_depth;
@@ -213,9 +215,61 @@ compose_headings (struct table *t,
   if (!a_axis->n_dimensions || !n_columns || !b_size)
     return;
 
-  int bottom_row = b_size - 1;
   const int stride = MAX (1, a_axis->n_dimensions);
-  for (int dim_index = 0; dim_index < a_axis->n_dimensions; dim_index++)
+
+  /* Below, we're going to iterate through the dimensions.  Each dimension
+     occupies one or more rows in the heading.  'top_row' is the top row of
+     these (and 'top_row + d->label_depth - 1' is the bottom row). */
+  int top_row = 0;
+
+  /* We're going to iterate through dimensions and the rows that label them
+     from top to bottom (from outer to inner dimensions).  As we move downward,
+     we start drawing vertical rules to separate categories and groups.  After
+     we start drawing a vertical rule in a particular horizontal position, it
+     continues until the bottom of the heading.  vrules[pos] indicates whether,
+     in our current row, we have already started drawing a vertical rule in
+     horizontal position 'pos'.  (There are n_columns + 1 horizontal positions.
+     We allocate all of them for convenience below but only the inner n_columns
+     - 1 of them really matter.)
+
+     Here's an example that shows how vertical rules continue all the way
+     downward:
+
+     +-----------------------------------------------------+ __
+     |                         bbbb                        |  |
+     +-----------------+-----------------+-----------------+  |dimension "bbbb"
+     |      bbbb1      |      bbbb2      |      bbbb3      | _|
+     +-----------------+-----------------+-----------------+ __
+     |       aaaa      |       aaaa      |       aaaa      |  |
+     +-----+-----+-----+-----+-----+-----+-----+-----+-----+  |dimension "aaaa"
+     |aaaa1|aaaa2|aaaa3|aaaa1|aaaa2|aaaa3|aaaa1|aaaa2|aaaa3| _|
+     +-----+-----+-----+-----+-----+-----+-----+-----+-----+
+
+     ^     ^     ^     ^     ^     ^     ^     ^     ^     ^
+     |     |     |     |     |     |     |     |     |     |
+     0     1     2     3     4     5     6     7     8     9
+     |___________________vrules[] indexes__________________|
+
+     Our data structures are more naturally iterated from bottom to top (inner
+     to outer dimensions).  A previous version of this code actually worked
+     like that, but it didn't draw all of the vertical lines correctly as shown
+     above.  It ended up rendering the above heading much like shown below,
+     which isn't what users expect.  The "aaaa" label really needs to be shown
+     three times for clarity:
+
+     +-----------------------------------------------------+
+     |                         bbbb                        |
+     +-----------------+-----------------+-----------------+
+     |      bbbb1      |      bbbb2      |      bbbb3      |
+     +-----------------+-----------------+-----------------+
+     |                 |       aaaa      |                 |
+     +-----+-----+-----+-----+-----+-----+-----+-----+-----+
+     |aaaa1|aaaa2|aaaa3|aaaa1|aaaa2|aaaa3|aaaa1|aaaa2|aaaa3|
+     +-----+-----+-----+-----+-----+-----+-----+-----+-----+
+  */
+  bool *vrules = xzalloc (n_columns + 1);
+  vrules[0] = vrules[n_columns] = true;
+  for (int dim_index = a_axis->n_dimensions; --dim_index >= 0; )
     {
       const struct pivot_dimension *d = a_axis->dimensions[dim_index];
       if (d->hide_all_labels)
@@ -226,7 +280,8 @@ compose_headings (struct table *t,
           for (size_t x1 = 0; x1 < n_columns;)
             {
               const struct pivot_category *c = find_category (
-                d, dim_index, column_enumeration + x1 * stride, row_ofs);
+                d, dim_index, column_enumeration + x1 * stride,
+                d->label_depth - row_ofs - 1);
               if (!c)
                 {
                   x1++;
@@ -236,14 +291,17 @@ compose_headings (struct table *t,
               size_t x2;
               for (x2 = x1 + 1; x2 < n_columns; x2++)
                 {
+                  if (vrules[x2])
+                    break;
                   const struct pivot_category *c2 = find_category (
-                    d, dim_index, column_enumeration + x2 * stride, row_ofs);
+                    d, dim_index, column_enumeration + x2 * stride,
+                    d->label_depth - row_ofs - 1);
                   if (c != c2)
                     break;
                 }
 
-              int y1 = bottom_row - row_ofs - c->extra_depth;
-              int y2 = bottom_row - row_ofs + 1;
+              int y1 = top_row + row_ofs;
+              int y2 = top_row + row_ofs + c->extra_depth + 1;
               bool is_outer_row = y1 == 0;
               bool is_inner_row = y2 == b_size;
               if (pivot_category_is_leaf (c) || c->show_label)
@@ -259,29 +317,40 @@ compose_headings (struct table *t,
                              label_style, label_style_idx, c->name, footnotes,
                              show_values, show_variables, rotate);
 
-                  if (pivot_category_is_leaf (c) && x2 + 1 <= n_columns)
+                  /* Draw all the vertical lines in our running example, other
+                     than the far left and far right ones.  Only the ones that
+                     start in the last row of the heading are drawn with the
+                     "category" style, the rest with the "dimension" style,
+                     e.g. only the # below are category style:
+
+                     +-----------------------------------------------------+
+                     |                         bbbb                        |
+                     +-----------------+-----------------+-----------------+
+                     |      bbbb1      |      bbbb2      |      bbbb3      |
+                     +-----------------+-----------------+-----------------+
+                     |       aaaa      |       aaaa      |       aaaa      |
+                     +-----+-----+-----+-----+-----+-----+-----+-----+-----+
+                     |aaaa1#aaaa2#aaaa3|aaaa1#aaaa2#aaaa3|aaaa1#aaaa2#aaaa3|
+                     +-----+-----+-----+-----+-----+-----+-----+-----+-----+
+                  */
+                  enum pivot_border style
+                    = (y1 == b_size - 1 ? cat_col_vert : dim_col_vert);
+                  if (!vrules[x2])
                     {
-                      enum pivot_border style
-                        = (y1 == 0 && a_axis->label_depth > d->label_depth
-                           ? dim_col_vert
-                           : cat_col_vert);
                       draw_line (t, borders, style, b, x2 + a_ofs, y1,
                                  t->n[b] - 1);
+                      vrules[x2] = true;
                     }
-                  if (pivot_category_is_leaf (c) && x1 > 0)
+                  if (!vrules[x1])
                     {
-                      enum pivot_border style
-                        = (y1 == 0 && a_axis->label_depth > d->label_depth
-                           ? dim_col_vert
-                           : cat_col_vert);
                       draw_line (t, borders, style, b, x1 + a_ofs, y1,
                                  t->n[b] - 1);
+                      vrules[x1] = true;
                     }
                 }
               if (c->parent && c->parent->show_label)
                 draw_line (t, borders, cat_col_horz, a, y1,
                            x1 + a_ofs, x2 + a_ofs - 1);
-
               x1 = x2;
             }
         }
@@ -291,19 +360,31 @@ compose_headings (struct table *t,
           int bb[TABLE_N_AXES][2];
           bb[a][0] = 0;
           bb[a][1] = a_ofs - 1;
-          bb[b][0] = bottom_row - d->label_depth + 1;
-          bb[b][1] = bottom_row;
+          bb[b][0] = top_row;
+          bb[b][1] = top_row + d->label_depth - 1;
           fill_cell (t, bb[H][0], bb[V][0], bb[H][1], bb[V][1],
                      corner_style, PIVOT_AREA_CORNER, d->root->name, footnotes,
                      show_values, show_variables, false);
         }
 
-      if (dim_index > 1)
-        draw_line (t, borders, dim_col_horz, a, bottom_row + 1, a_ofs,
-                   t->n[a] - 1);
+      /* Draw the horizontal line between dimensions, e.g. the ===== line here:
 
-      bottom_row -= d->label_depth;
+         +-----------------------------------------------------+ __
+         |                         bbbb                        |  |
+         +-----------------+-----------------+-----------------+  |dim "bbbb"
+         |      bbbb1      |      bbbb2      |      bbbb3      | _|
+         +=================+=================+=================+ __
+         |       aaaa      |       aaaa      |       aaaa      |  |
+         +-----+-----+-----+-----+-----+-----+-----+-----+-----+  |dim "aaaa"
+         |aaaa1|aaaa2|aaaa3|aaaa1|aaaa2|aaaa3|aaaa1|aaaa2|aaaa3| _|
+         +-----+-----+-----+-----+-----+-----+-----+-----+-----+
+      */
+      if (dim_index != a_axis->n_dimensions - 1)
+        draw_line (t, borders, dim_col_horz, a, top_row, a_ofs,
+                   t->n[a] - 1);
+      top_row += d->label_depth;
     }
+  free (vrules);
 }
 
 static void
