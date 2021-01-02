@@ -31,6 +31,8 @@
 #include "output/options.h"
 #include "output/message-item.h"
 #include "output/page-eject-item.h"
+#include "output/pivot-output.h"
+#include "output/pivot-table.h"
 #include "output/table-item.h"
 #include "output/table-provider.h"
 
@@ -175,26 +177,70 @@ csv_output_lines (struct csv_driver *csv, const char *text_)
 }
 
 static void
-csv_format_footnotes (const struct footnote **f, size_t n, struct string *s)
+csv_output_table_cell (struct csv_driver *csv, const struct pivot_table *pt,
+                       const struct table_cell *cell, const char *leader)
 {
-  for (size_t i = 0; i < n; i++)
-    ds_put_format (s, "[%s]", f[i]->marker);
+  struct string s = DS_EMPTY_INITIALIZER;
+  if (leader)
+    ds_put_format (&s, "%s: ", leader);
+  pivot_value_format (cell->value, pt, &s);
+  if (cell->font_style->markup)
+    {
+      char *t = output_get_text_from_markup (ds_cstr (&s));
+      ds_assign_cstr (&s, t);
+      free (t);
+    }
+  csv_output_field (csv, ds_cstr (&s));
+  ds_destroy (&s);
 }
 
 static void
-csv_output_table_item_text (struct csv_driver *csv,
-                            const struct table_item_text *text,
-                            const char *leader)
+csv_output_table__ (struct csv_driver *csv, const struct pivot_table *pt,
+                    const struct table *t, const char *leader)
 {
-  if (!text)
+  if (!t)
     return;
 
-  struct string s = DS_EMPTY_INITIALIZER;
-  ds_put_format (&s, "%s: %s", leader, text->content);
-  csv_format_footnotes (text->footnotes, text->n_footnotes, &s);
-  csv_output_field (csv, ds_cstr (&s));
-  ds_destroy (&s);
-  putc ('\n', csv->file);
+  for (int y = 0; y < t->n[TABLE_VERT]; y++)
+    {
+      for (int x = 0; x < t->n[TABLE_HORZ]; x++)
+        {
+          struct table_cell cell;
+
+          table_get_cell (t, x, y, &cell);
+
+          if (x > 0)
+            fputs (csv->separator, csv->file);
+
+          if (x != cell.d[TABLE_HORZ][0] || y != cell.d[TABLE_VERT][0])
+            csv_output_field (csv, "");
+          else
+            csv_output_table_cell (csv, pt, &cell, !x ? leader : NULL);
+        }
+      putc ('\n', csv->file);
+    }
+}
+
+static void
+csv_output_table_layer (struct csv_driver *csv, const struct pivot_table *pt,
+                        const size_t *layer_indexes)
+{
+  struct table *title, *layers, *body, *caption, *footnotes;
+  pivot_output (pt, layer_indexes, true, &title, &layers, &body,
+                &caption, &footnotes, NULL, NULL);
+
+  csv_put_separator (csv);
+  csv_output_table__ (csv, pt, title, "Table");
+  csv_output_table__ (csv, pt, layers, "Layer");
+  csv_output_table__ (csv, pt, body, NULL);
+  csv_output_table__ (csv, pt, caption, "Caption");
+  csv_output_table__ (csv, pt, footnotes, "Footnote");
+
+  table_unref (title);
+  table_unref (layers);
+  table_unref (body);
+  table_unref (caption);
+  table_unref (footnotes);
 }
 
 static void
@@ -205,77 +251,11 @@ csv_submit (struct output_driver *driver,
 
   if (is_table_item (output_item))
     {
-      struct table_item *table_item = to_table_item (output_item);
-      const struct table *t = table_item_get_table (table_item);
-      int x, y;
+      const struct pivot_table *pt = to_table_item (output_item)->pt;
 
-      csv_put_separator (csv);
-
-      if (csv->titles)
-        csv_output_table_item_text (csv, table_item_get_title (table_item),
-                                    "Table");
-
-      for (y = 0; y < t->n[TABLE_VERT]; y++)
-        {
-          for (x = 0; x < t->n[TABLE_HORZ]; x++)
-            {
-              struct table_cell cell;
-
-              table_get_cell (t, x, y, &cell);
-
-              if (x > 0)
-                fputs (csv->separator, csv->file);
-
-              if (x != cell.d[TABLE_HORZ][0] || y != cell.d[TABLE_VERT][0])
-                csv_output_field (csv, "");
-              else if (!(cell.options & TAB_MARKUP) && !cell.n_footnotes
-                       && !cell.n_subscripts)
-                csv_output_field (csv, cell.text);
-              else
-                {
-                  struct string s = DS_EMPTY_INITIALIZER;
-
-                  if (cell.options & TAB_MARKUP)
-                    {
-                      char *t = output_get_text_from_markup (cell.text);
-                      ds_put_cstr (&s, t);
-                      free (t);
-                    }
-                  else
-                    ds_put_cstr (&s, cell.text);
-
-                  if (cell.n_subscripts)
-                    for (size_t i = 0; i < cell.n_subscripts; i++)
-                      ds_put_format (&s, "%c%s",
-                                     i ? ',' : '_', cell.subscripts[i]);
-                  csv_format_footnotes (cell.footnotes, cell.n_footnotes, &s);
-                  csv_output_field (csv, ds_cstr (&s));
-                  ds_destroy (&s);
-                }
-            }
-          putc ('\n', csv->file);
-        }
-
-      if (csv->captions)
-        csv_output_table_item_text (csv, table_item_get_caption (table_item),
-                                    "Caption");
-
-      const struct footnote **f;
-      size_t n_footnotes = table_collect_footnotes (table_item, &f);
-      if (n_footnotes)
-        {
-          fputs ("\nFootnotes:\n", csv->file);
-
-          for (size_t i = 0; i < n_footnotes; i++)
-            {
-              csv_output_field (csv, f[i]->marker);
-              fputs (csv->separator, csv->file);
-              csv_output_field (csv, f[i]->content);
-              putc ('\n', csv->file);
-            }
-
-          free (f);
-        }
+      size_t *layer_indexes;
+      PIVOT_OUTPUT_FOR_EACH_LAYER (layer_indexes, pt, true)
+        csv_output_table_layer (csv, pt, layer_indexes);
     }
   else if (is_text_item (output_item))
     {
@@ -288,7 +268,7 @@ csv_submit (struct output_driver *driver,
 
       csv_put_separator (csv);
 
-      if (text_item->markup)
+      if (text_item->style.markup)
         {
           char *plain_text = output_get_text_from_markup (text);
           csv_output_lines (csv, plain_text);

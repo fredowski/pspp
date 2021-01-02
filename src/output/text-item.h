@@ -27,6 +27,7 @@
 #include <stdbool.h>
 #include "libpspp/compiler.h"
 #include "output/output-item.h"
+#include "output/table.h"
 
 enum text_item_type
   {
@@ -44,20 +45,19 @@ struct text_item
     struct output_item output_item;
     char *text;                 /* The content. */
     enum text_item_type type;   /* Type. */
-
-    bool bold, italic, underline, markup;
-    char *typeface;
-    int size;
+    struct font_style style;
   };
 
-struct text_item *text_item_create (enum text_item_type, const char *text);
-struct text_item *text_item_create_nocopy (enum text_item_type, char *text);
-struct text_item *text_item_create_format (enum text_item_type,
-                                           const char *format, ...)
-  PRINTF_FORMAT (2, 3);
+struct text_item *text_item_create (enum text_item_type,
+                                    const char *text, const char *label);
+struct text_item *text_item_create_nocopy (enum text_item_type,
+                                           char *text, char *label);
 
 enum text_item_type text_item_get_type (const struct text_item *);
 const char *text_item_get_text (const struct text_item *);
+
+struct text_item *text_item_unshare (struct text_item *);
+bool text_item_append (struct text_item *dst, const struct text_item *src);
 
 struct table_item *text_item_to_table_item (struct text_item *);
 

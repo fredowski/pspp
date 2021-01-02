@@ -361,6 +361,7 @@ void pivot_category_destroy (struct pivot_category *);
 #define PIVOT_RC_COUNT ("RC_COUNT")
 
 bool pivot_result_class_change (const char *, const struct fmt_spec *);
+bool is_pivot_result_class (const char *);
 
 /* Styling for a pivot table.
 
@@ -484,8 +485,17 @@ struct pivot_table *pivot_table_create_for_text (struct pivot_value *title,
                                                  struct pivot_value *content);
 
 struct pivot_table *pivot_table_ref (const struct pivot_table *);
+struct pivot_table *pivot_table_unshare (struct pivot_table *);
 void pivot_table_unref (struct pivot_table *);
 bool pivot_table_is_shared (const struct pivot_table *);
+
+/* Axes. */
+void pivot_table_swap_axes (struct pivot_table *,
+                            enum pivot_axis_type, enum pivot_axis_type);
+void pivot_table_transpose (struct pivot_table *);
+void pivot_table_move_dimension (struct pivot_table *,
+                                 struct pivot_dimension *,
+                                 enum pivot_axis_type, size_t ofs);
 
 /* Styling. */
 const struct pivot_table_look *pivot_table_get_look (
@@ -522,6 +532,8 @@ const struct pivot_value *pivot_table_get (const struct pivot_table *,
 
 struct pivot_value *pivot_table_get_rw (struct pivot_table *,
                                         const size_t *dindexes);
+
+bool pivot_table_delete (struct pivot_table *, const size_t *dindexes);
 
 /* Footnotes.
 
@@ -635,7 +647,7 @@ struct pivot_value
     char **subscripts;
     size_t n_subscripts;
 
-    const struct pivot_footnote **footnotes;
+    size_t *footnote_indexes;
     size_t n_footnotes;
 
     enum pivot_value_type type;
@@ -694,6 +706,10 @@ struct pivot_value
       };
   };
 
+/* Life cycle. */
+struct pivot_value *pivot_value_clone (const struct pivot_value *);
+void pivot_value_destroy (struct pivot_value *);
+
 /* Numbers resulting from calculations. */
 struct pivot_value *pivot_value_new_number (double);
 struct pivot_value *pivot_value_new_integer (double);
@@ -729,18 +745,13 @@ void pivot_value_set_rc (const struct pivot_table *, struct pivot_value *,
 
 /* Converting a pivot_value to a string for display. */
 char *pivot_value_to_string (const struct pivot_value *,
-                             enum settings_value_show show_values,
-                             enum settings_value_show show_variables);
+                             const struct pivot_table *);
+char *pivot_value_to_string_defaults (const struct pivot_value *);
 void pivot_value_format (const struct pivot_value *,
-                         enum settings_value_show show_values,
-                         enum settings_value_show show_variables,
-                         struct string *);
+                         const struct pivot_table *, struct string *);
 bool pivot_value_format_body (const struct pivot_value *,
-                              enum settings_value_show show_values,
-                              enum settings_value_show show_variables,
+                              const struct pivot_table *,
                               struct string *);
-
-void pivot_value_destroy (struct pivot_value *);
 
 /* Styling. */
 void pivot_value_get_style (struct pivot_value *,
@@ -749,6 +760,10 @@ void pivot_value_get_style (struct pivot_value *,
                             struct table_area_style *);
 void pivot_value_set_style (struct pivot_value *,
                             const struct table_area_style *);
+void pivot_value_set_font_style (struct pivot_value *,
+                                 const struct font_style *);
+void pivot_value_set_cell_style (struct pivot_value *,
+                                 const struct cell_style *);
 
 /* Template arguments. */
 struct pivot_argument
@@ -758,6 +773,8 @@ struct pivot_argument
   };
 
 void pivot_argument_uninit (struct pivot_argument *);
+void pivot_argument_copy (struct pivot_argument *,
+                          const struct pivot_argument *);
 
 /* One piece of data within a pivot table. */
 struct pivot_cell

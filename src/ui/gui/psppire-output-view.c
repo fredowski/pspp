@@ -33,6 +33,7 @@
 #include "output/message-item.h"
 #include "output/output-item.h"
 #include "output/output-item-provider.h"
+#include "output/pivot-table.h"
 #include "output/table-item.h"
 #include "output/text-item.h"
 
@@ -84,9 +85,9 @@ struct psppire_output_view
 
 enum
   {
-    COL_NAME,                   /* Table name. */
+    COL_LABEL,                  /* Output item label. */
     COL_ADDR,                   /* Pointer to the table */
-    COL_Y,                      /* Y position of top of name. */
+    COL_Y,                      /* Y position of top of object. */
     N_COLS
   };
 
@@ -151,19 +152,15 @@ get_xr_fsm_style (struct psppire_output_view *view)
 
   PangoFontDescription *pf;
   gtk_style_context_get (context, state, "font", &pf, NULL);
-  PangoFontDescription *ff = pango_font_description_from_string ("Monospace");
-  pango_font_description_set_size (ff, pango_font_description_get_size (pf));
 
   struct xr_fsm_style *style = xmalloc (sizeof *style);
   *style = (struct xr_fsm_style) {
     .ref_cnt = 1,
     .size = { [TABLE_HORZ] = xr_width, [TABLE_VERT] = INT_MAX },
     .min_break = { [TABLE_HORZ] = xr_width / 2, [TABLE_VERT] = 0 },
-    .fonts = {
-      [XR_FONT_PROPORTIONAL] = pf,
-      [XR_FONT_FIXED] = ff,
-    },
+    .font = pf,
     .use_system_colors = true,
+    .object_spacing = XR_POINT * 12,
     .font_resolution = 96.0,
   };
 
@@ -337,7 +334,7 @@ rerender (struct psppire_output_view *view)
       if (is_group_open_item (item->item))
         continue;
 
-      r = xr_fsm_create (item->item, view->style, cr);
+      r = xr_fsm_create_for_scrolling (item->item, view->style, cr);
       if (r == NULL)
         {
           g_warn_if_reached ();
@@ -364,7 +361,7 @@ rerender (struct psppire_output_view *view)
       if (is_table_item (item->item))
         {
           const struct table_item *ti = to_table_item (item->item);
-          gtk_widget_set_tooltip_text (item->drawing_area, ti->notes);
+          gtk_widget_set_tooltip_text (item->drawing_area, ti->pt->notes);
         }
 
       {
@@ -405,7 +402,6 @@ psppire_output_view_put (struct psppire_output_view *view,
 {
   struct output_view_item *view_item;
   GtkWidget *drawing_area;
-  struct string name;
   int tw, th;
 
   if (is_group_close_item (item))
@@ -452,7 +448,7 @@ psppire_output_view_put (struct psppire_output_view *view,
       if (view->y > 0)
         view->y += view->object_spacing;
 
-      struct xr_fsm *r = xr_fsm_create (item, view->style, cr);
+      struct xr_fsm *r = xr_fsm_create_for_scrolling (item, view->style, cr);
       if (r == NULL)
 	{
 	  gdk_window_end_draw_frame (win, ctx);
@@ -473,8 +469,6 @@ psppire_output_view_put (struct psppire_output_view *view,
       GtkTreeStore *store = GTK_TREE_STORE (
         gtk_tree_view_get_model (view->overview));
 
-      ds_init_empty (&name);
-
       /* Create a new node in the tree and puts a reference to it in 'iter'. */
       GtkTreeIter iter;
       GtkTreeIter parent;
@@ -493,45 +487,11 @@ psppire_output_view_put (struct psppire_output_view *view,
                                                      &iter);
         }
 
-      ds_clear (&name);
-      if (is_text_item (item))
-        {
-          const struct text_item *text_item = to_text_item (item);
-          ds_put_cstr (&name, text_item_type_to_string (
-                         text_item_get_type (text_item)));
-        }
-      else if (is_message_item (item))
-        {
-          const struct message_item *msg_item = to_message_item (item);
-          const struct msg *msg = message_item_get_msg (msg_item);
-          ds_put_format (&name, "%s: %s", _("Message"),
-                         msg_severity_to_string (msg->severity));
-        }
-      else if (is_table_item (item))
-        {
-          const struct table_item_text *title
-            = table_item_get_title (to_table_item (item));
-          if (title != NULL)
-            ds_put_format (&name, "Table: %s", title->content);
-          else
-            ds_put_cstr (&name, "Table");
-        }
-      else if (is_chart_item (item))
-        {
-          const char *s = chart_item_get_title (to_chart_item (item));
-          if (s != NULL)
-            ds_put_format (&name, "Chart: %s", s);
-          else
-            ds_put_cstr (&name, "Chart");
-        }
-      else if (is_group_open_item (item))
-        ds_put_cstr (&name, to_group_open_item (item)->command_name);
       gtk_tree_store_set (store, &iter,
-                          COL_NAME, ds_cstr (&name),
+                          COL_LABEL, output_item_get_label (item),
 			  COL_ADDR, item,
-                          COL_Y, (view->y),
+                          COL_Y, view->y,
                           -1);
-      ds_destroy (&name);
 
       GtkTreePath *path = gtk_tree_model_get_path (
         GTK_TREE_MODEL (store), &iter);
@@ -877,7 +837,7 @@ psppire_output_view_new (GtkLayout *output, GtkTreeView *overview)
 
       model = GTK_TREE_MODEL (gtk_tree_store_new (
                                 N_COLS,
-                                G_TYPE_STRING,  /* COL_NAME */
+                                G_TYPE_STRING,  /* COL_LABEL */
                                 G_TYPE_POINTER, /* COL_ADDR */
                                 G_TYPE_LONG));  /* COL_Y */
       gtk_tree_view_set_model (overview, model);
@@ -887,7 +847,7 @@ psppire_output_view_new (GtkLayout *output, GtkTreeView *overview)
       gtk_tree_view_append_column (GTK_TREE_VIEW (overview), column);
       renderer = gtk_cell_renderer_text_new ();
       gtk_tree_view_column_pack_start (column, renderer, TRUE);
-      gtk_tree_view_column_add_attribute (column, renderer, "text", COL_NAME);
+      gtk_tree_view_column_add_attribute (column, renderer, "text", COL_LABEL);
 
       g_signal_connect (GTK_TREE_VIEW (overview),
                         "row-activated", G_CALLBACK (on_row_activate), view);
@@ -995,11 +955,6 @@ create_xr_print_driver (GtkPrintContext *context, struct psppire_output_view *vi
   for (int a = 0; a < TABLE_N_AXES; a++)
     size[a] = paper[a] - margins[a][0] - margins[a][1];
 
-  PangoFontDescription *proportional_font
-    = pango_font_description_from_string ("Sans Serif 10");
-  PangoFontDescription *fixed_font
-    = pango_font_description_from_string ("Monospace 10");
-
   view->page_style = xmalloc (sizeof *view->page_style);
   *view->page_style = (struct xr_page_style) {
     .ref_cnt = 1,
@@ -1009,7 +964,6 @@ create_xr_print_driver (GtkPrintContext *context, struct psppire_output_view *vi
       [V] = { margins[V][0], margins[V][1] },
     },
     .initial_page_number = 1,
-    .object_spacing = 12 * XR_POINT,
   };
 
   view->fsm_style = xmalloc (sizeof *view->fsm_style);
@@ -1018,12 +972,10 @@ create_xr_print_driver (GtkPrintContext *context, struct psppire_output_view *vi
 
     .size = { [H] = size[H], [V] = size[V] },
     .min_break = { [H] = size[H] / 2, [V] = size[V] / 2 },
-    .fonts = {
-      [XR_FONT_PROPORTIONAL] = proportional_font,
-      [XR_FONT_FIXED] = fixed_font,
-    },
+    .font = pango_font_description_from_string ("Sans Serif 10"),
     .fg = CELL_COLOR_BLACK,
     .use_system_colors = false,
+    .object_spacing = 12 * XR_POINT,
     .font_resolution = 72.0
   };
 

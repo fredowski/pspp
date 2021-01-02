@@ -33,19 +33,14 @@ spv_text_submit (const struct spv_item *in)
        : class == SPV_CLASS_PAGETITLE ? TEXT_ITEM_PAGE_TITLE
        : TEXT_ITEM_LOG);
   const struct pivot_value *value = spv_item_get_text (in);
-  char *text = pivot_value_to_string (value, SETTINGS_VALUE_SHOW_DEFAULT,
-                                      SETTINGS_VALUE_SHOW_DEFAULT);
-  struct text_item *item = text_item_create_nocopy (type, text);
-  const struct font_style *font = value->font_style;
-  if (font)
+  char *text = pivot_value_to_string_defaults (value);
+  char *label = in->label ? xstrdup (in->label) : NULL;
+  struct text_item *item = text_item_create_nocopy (type, text, label);
+
+  if (value->font_style)
     {
-      item->bold = font->bold;
-      item->italic = font->italic;
-      item->underline = font->underline;
-      item->markup = font->markup;
-      if (font->typeface)
-        item->typeface = xstrdup (font->typeface);
-      item->size = font->size;
+      font_style_uninit (&item->style);
+      font_style_copy (NULL, &item->style, value->font_style);
     }
   text_item_submit (item);
 }

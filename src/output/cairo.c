@@ -218,10 +218,8 @@ xr_allocate (const char *name, int device_type,
       min_break[a] = size[a] / 2;
 
   int font_size = parse_int (opt (d, o, "font-size", "10000"), 1000, 1000000);
-  PangoFontDescription *fixed_font = parse_font_option
-    (d, o, "fixed-font", "monospace", font_size, false, false);
-  PangoFontDescription *proportional_font = parse_font_option (
-    d, o, "prop-font", "sans serif", font_size, false, false);
+  PangoFontDescription *font = parse_font_option (
+    d, o, "prop-font", "Sans Serif", font_size, false, false);
 
   struct cell_color fg = parse_color (opt (d, o, "foreground-color", "black"));
 
@@ -256,7 +254,6 @@ xr_allocate (const char *name, int device_type,
     },
 
     .initial_page_number = 1,
-    .object_spacing = object_spacing,
     .include_outline = include_outline,
   };
 
@@ -265,12 +262,10 @@ xr_allocate (const char *name, int device_type,
     .ref_cnt = 1,
     .size = { [H] = size[H], [V] = size[V] },
     .min_break = { [H] = min_break[H], [V] = min_break[V] },
-    .fonts = {
-      [XR_FONT_PROPORTIONAL] = proportional_font,
-      [XR_FONT_FIXED] = fixed_font,
-    },
+    .font = font,
     .fg = fg,
     .use_system_colors = systemcolors,
+    .object_spacing = object_spacing,
     .font_resolution = font_resolution,
   };
 
@@ -579,7 +574,6 @@ xr_update_page_setup (struct output_driver *driver,
     },
 
     .initial_page_number = setup->initial_page_number,
-    .object_spacing = setup->object_spacing * 72 * XR_POINT,
     .include_outline = old_ps->include_outline,
   };
   for (size_t i = 0; i < 2; i++)
@@ -595,12 +589,12 @@ xr_update_page_setup (struct output_driver *driver,
       [H] = setup->paper[H] * scale / 2,
       [V] = setup->paper[V] * scale / 2,
     },
+    .font = pango_font_description_copy (old_fs->font),
     .fg = old_fs->fg,
     .use_system_colors = old_fs->use_system_colors,
+    .object_spacing = setup->object_spacing * 72 * XR_POINT,
     .font_resolution = old_fs->font_resolution,
   };
-  for (size_t i = 0; i < XR_N_FONTS; i++)
-    xr->fsm_style->fonts[i] = pango_font_description_copy (old_fs->fonts[i]);
   xr_fsm_style_unref (old_fs);
 
   xr_set_surface_size (xr->dest_surface, xr->output_type,
