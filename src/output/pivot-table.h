@@ -278,7 +278,8 @@ struct pivot_dimension *pivot_dimension_create__ (struct pivot_table *,
 
 void pivot_dimension_destroy (struct pivot_dimension *);
 
-void pivot_dimension_dump (const struct pivot_dimension *, int indentation);
+void pivot_dimension_dump (const struct pivot_dimension *,
+                           const struct pivot_table *, int indentation);
 
 /* A pivot_category is a leaf (a category) or a group:
 
@@ -306,10 +307,11 @@ struct pivot_category
     bool show_label_in_corner;
 
     /* Leaf only. */
-    struct fmt_spec format;
     size_t group_index;        /* In ->parent->subs[]. */
     size_t data_index;         /* In ->dimension->data_leaves[]. */
     size_t presentation_index; /* In ->dimension->presentation_leaves[]. */
+    struct fmt_spec format;    /* Default format for values in this category. */
+    bool honor_small;          /* Honor pivot_table 'small' setting? */
   };
 
 static inline bool
@@ -439,10 +441,8 @@ struct pivot_table
     struct pivot_table_sizing sizing[TABLE_N_AXES];
 
     /* Format settings. */
-    int epoch;
-    char decimal;               /* Usually ',' or '.'. */
+    struct fmt_settings settings;
     char grouping;              /* Usually '.' or ','. */
-    char *ccs[5];               /* Custom currency. */
     double small;
 
     /* Command information. */
@@ -661,6 +661,7 @@ struct pivot_value
             char *var_name;           /* May be NULL. */
             char *value_label;        /* May be NULL. */
             enum settings_value_show show; /* Show value or label or both? */
+            bool honor_small;         /* Honor value of pivot table 'small'? */
           }
         numeric;
 

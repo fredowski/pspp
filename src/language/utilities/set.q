@@ -110,6 +110,7 @@ int tgetnum (const char *);
      scompression=scompress:on/off;
      scripttab=string;
      seed=custom;
+     small=double;
      tnumbers=custom;
      tvars=custom;
      tb1=string;
@@ -195,6 +196,8 @@ cmd_set (struct lexer *lexer, struct dataset *ds)
     settings_set_safer_mode ();
   if (cmd.sbc_scompression)
     settings_set_scompression (cmd.scompress == STC_ON);
+  if (cmd.sbc_small)
+    settings_set_small (cmd.n_small[0]);
   if (cmd.sbc_undefined)
     settings_set_undefined (cmd.undef == STC_WARN);
   if (cmd.sbc_wib)
@@ -655,36 +658,11 @@ show_blanks (const struct dataset *ds UNUSED)
           : xasprintf ("%.*g", DBL_DIG + 1, settings_get_blanks ()));
 }
 
-static void
-format_cc (struct string *out, const char *in, char grouping)
-{
-  while (*in != '\0')
-    {
-      char c = *in++;
-      if (c == grouping || c == '\'')
-        ds_put_byte (out, '\'');
-      else if (c == '"')
-        ds_put_byte (out, '"');
-      ds_put_byte (out, c);
-    }
-}
-
 static char *
 show_cc (enum fmt_type type)
 {
-  const struct fmt_number_style *cc = settings_get_style (type);
-  struct string out;
-
-  ds_init_empty (&out);
-  format_cc (&out, cc->neg_prefix.s, cc->grouping);
-  ds_put_byte (&out, cc->grouping);
-  format_cc (&out, cc->prefix.s, cc->grouping);
-  ds_put_byte (&out, cc->grouping);
-  format_cc (&out, cc->suffix.s, cc->grouping);
-  ds_put_byte (&out, cc->grouping);
-  format_cc (&out, cc->neg_suffix.s, cc->grouping);
-
-  return ds_cstr (&out);
+  return fmt_number_style_to_string (fmt_settings_get_style (
+                                       settings_get_fmt_settings (), type));
 }
 
 static char *
@@ -720,7 +698,7 @@ show_cce (const struct dataset *ds UNUSED)
 static char *
 show_decimals (const struct dataset *ds UNUSED)
 {
-  return xasprintf ("`%c'", settings_get_decimal_char (FMT_F));
+  return xasprintf ("`%c'", settings_get_fmt_settings ()->decimal);
 }
 
 static char *
