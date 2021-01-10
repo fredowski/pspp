@@ -302,6 +302,7 @@ decode_spvlb_value (const struct pivot_table *table,
       out->type = PIVOT_VALUE_NUMERIC;
       out->numeric.x = in->type_01.x;
       error = spv_decode_fmt_spec (in->type_01.format, &out->numeric.format);
+      out->numeric.honor_small = (in->type_01.format >> 16) == 40;
       if (error)
         return error;
       break;
@@ -729,7 +730,7 @@ decode_data_index (uint64_t in, const struct pivot_table *table,
                    size_t *out)
 {
   uint64_t remainder = in;
-  for (size_t i = table->n_dimensions - 1; i > 0; i--)
+  for (size_t i = table->n_dimensions - 1; i < table->n_dimensions; i--)
     {
       const struct pivot_dimension *d = table->dimensions[i];
       if (d->n_leaves)
@@ -740,10 +741,9 @@ decode_data_index (uint64_t in, const struct pivot_table *table,
       else
         out[i] = 0;
     }
-  if (remainder >= table->dimensions[0]->n_leaves)
+  if (remainder)
     return xasprintf ("out of range cell data index %"PRIu64, in);
 
-  out[0] = remainder;
   return NULL;
 }
 
@@ -808,19 +808,21 @@ decode_current_layer (uint64_t current_layer, struct pivot_table *table)
   table->current_layer = xnmalloc (axis->n_dimensions,
                                    sizeof *table->current_layer);
 
+  uint64_t remainder = current_layer;
   for (size_t i = 0; i < axis->n_dimensions; i++)
     {
       const struct pivot_dimension *d = axis->dimensions[i];
       if (d->n_leaves)
         {
-          table->current_layer[i] = current_layer % d->n_leaves;
-          current_layer /= d->n_leaves;
+          table->current_layer[i] = remainder % d->n_leaves;
+          remainder /= d->n_leaves;
         }
       else
         table->current_layer[i] = 0;
     }
-  if (current_layer > 0)
+  if (remainder > 0)
     return xasprintf ("out of range layer data index %"PRIu64, current_layer);
+
   return NULL;
 }
 

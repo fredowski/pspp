@@ -7,7 +7,7 @@ AT_DATA([pivot.txt], [[
 /title "Columns" /display
 /title "Rows" /transpose.
 ]])
-AT_CHECK([pivot-table-test --table-look $srcdir/output/look.stt pivot.txt --box unicode], [0], [dnl
+AT_DATA([expout], [dnl
 Columns
 ╭────────╮
 │    a   │
@@ -26,6 +26,8 @@ Rows
 │a3│2│
 ╰──┴─╯
 ])
+AT_CHECK([pivot-table-test --table-look $srcdir/output/look.stt pivot.txt --box unicode], [0], [expout])
+AT_CHECK([pspp-output -O box=unicode convert render.spv -], [0], [expout])
 AT_CLEANUP
 
 AT_SETUP([2-d pivot table])
@@ -38,7 +40,7 @@ AT_DATA([pivot.txt], [[
 /title "Column x Row" /move "a" column /display
 /title "Row x Column" /transpose
 ]])
-AT_CHECK([pivot-table-test --table-look $srcdir/output/look.stt pivot.txt --box unicode], [0], [dnl
+AT_DATA([expout], [dnl
 Columns
 ╭────────┬────────┬────────╮
 │   b1   │   b2   │   b3   │
@@ -81,6 +83,8 @@ Row x Column
 │a3│ 2│ 5│ 8│
 ╰──┴──┴──┴──╯
 ])
+AT_CHECK([pivot-table-test --table-look $srcdir/output/look.stt pivot.txt --box unicode], [0], [expout])
+AT_CHECK([pspp-output -O box=unicode convert render.spv -], [0], [expout])
 AT_CLEANUP
 
 AT_SETUP([2-d pivot table - dimension labels])
@@ -96,7 +100,7 @@ AT_DATA([pivot.txt], [[
 /title "Row x Column - Corner" /transpose /look rowlabels=corner /display
 /title "Row x Column - Nested" /look rowlabels=nested
 ]])
-AT_CHECK([pivot-table-test --table-look $srcdir/output/look.stt pivot.txt --box unicode], [0], [dnl
+AT_DATA([expout], [dnl
 Columns
 ╭──────────────────────────╮
 │             b            │
@@ -186,6 +190,8 @@ Row x Column - Nested
 │  a3│ 2│ 5│ 8│
 ╰────┴──┴──┴──╯
 ])
+AT_CHECK([pivot-table-test --table-look $srcdir/output/look.stt pivot.txt --box unicode], [0], [expout])
+AT_CHECK([pspp-output -O box=unicode convert render.spv -], [0], [expout])
 AT_CLEANUP
 
 AT_SETUP([2-d pivot table - groups])
@@ -202,7 +208,7 @@ AT_DATA([pivot.txt], [[
 /title "Row x Column - delete b1" /cells[all,0]=delete /look empty=hide /display
 /title "Row x Column - delete b1 - show empty" /look empty=show.
 ]])
-AT_CHECK([pivot-table-test --table-look $srcdir/output/look.stt pivot.txt --box unicode], [0], [dnl
+AT_DATA([expout], [dnl
 Columns
 ╭─────────────────┬────────╮
 │       bg1       │        │
@@ -304,6 +310,8 @@ Row x Column - delete b1 - show empty
 │    a3│  │  │ 8│
 ╰──────┴──┴──┴──╯
 ])
+AT_CHECK([pivot-table-test --table-look $srcdir/output/look.stt pivot.txt --box unicode], [0], [expout])
+AT_CHECK([pspp-output -O box=unicode convert render.spv -], [0], [expout])
 AT_CLEANUP
 
 AT_SETUP([2-d pivot table - layers])
@@ -318,9 +326,9 @@ AT_DATA([pivot.txt], [[
 /title "Column (All Layers)" /look layers=all /display
 /title "Row (All Layers)" /transpose /look layers=all
 ]])
-AT_CHECK([pivot-table-test --table-look $srcdir/output/look.stt pivot.txt --box unicode], [0], [dnl
+AT_DATA([expout], [dnl
 Column x b1
-b: b1
+b1
 ╭──┬──┬──╮
 │a1│a2│a3│
 ├──┼──┼──┤
@@ -328,7 +336,7 @@ b: b1
 ╰──┴──┴──╯
 
 Row x b1
-b: b1
+b1
 ╭──┬─╮
 │a1│0│
 │a2│1│
@@ -336,7 +344,7 @@ b: b1
 ╰──┴─╯
 
 Column x b2
-b: b2
+b2
 ╭──┬──┬──╮
 │a1│a2│a3│
 ├──┼──┼──┤
@@ -344,7 +352,7 @@ b: b2
 ╰──┴──┴──╯
 
 Row x b2
-b: b2
+b2
 ╭──┬─╮
 │a1│3│
 │a2│4│
@@ -352,7 +360,7 @@ b: b2
 ╰──┴─╯
 
 Column (All Layers)
-b: b1
+b1
 ╭──┬─╮
 │a1│0│
 │a2│1│
@@ -360,7 +368,7 @@ b: b1
 ╰──┴─╯
 
 Column (All Layers)
-b: b2
+b2
 ╭──┬─╮
 │a1│3│
 │a2│4│
@@ -368,7 +376,7 @@ b: b2
 ╰──┴─╯
 
 Column (All Layers)
-b: b3
+b3
 ╭──┬─╮
 │a1│6│
 │a2│7│
@@ -376,7 +384,7 @@ b: b3
 ╰──┴─╯
 
 Row (All Layers)
-b: b1
+b1
 ╭──┬──┬──╮
 │a1│a2│a3│
 ├──┼──┼──┤
@@ -384,7 +392,7 @@ b: b1
 ╰──┴──┴──╯
 
 Row (All Layers)
-b: b2
+b2
 ╭──┬──┬──╮
 │a1│a2│a3│
 ├──┼──┼──┤
@@ -392,13 +400,57 @@ b: b2
 ╰──┴──┴──╯
 
 Row (All Layers)
-b: b3
+b3
 ╭──┬──┬──╮
 │a1│a2│a3│
 ├──┼──┼──┤
 │ 6│ 7│ 8│
 ╰──┴──┴──╯
 ])
+AT_CHECK([pivot-table-test --table-look $srcdir/output/look.stt pivot.txt --box unicode], [0], [expout])
+AT_CHECK([pspp-output -O box=unicode convert render.spv -], [0], [expout])
+AT_CLEANUP
+
+AT_SETUP([3-d pivot table - layers])
+AT_DATA([pivot.txt], [[
+/layer "a"("a1", "a2", "a3")
+/layer "b"("b1", "b2", "b3", "b4")
+/col "c"("c1", "c2", "c3", "c4", "c5")
+/cell[all, all, all]
+/title "Column x b1 x a1" /display
+/title "Column x b2 x a1" /show layer 0 1 /display
+/title "Column x b3 x a2" /show layer 1 2 /display
+]])
+AT_DATA([expout], [dnl
+Column x b1 x a1
+b1
+a1
+╭──┬──┬──┬──┬──╮
+│c1│c2│c3│c4│c5│
+├──┼──┼──┼──┼──┤
+│ 0│12│24│36│48│
+╰──┴──┴──┴──┴──╯
+
+Column x b2 x a1
+b2
+a1
+╭──┬──┬──┬──┬──╮
+│c1│c2│c3│c4│c5│
+├──┼──┼──┼──┼──┤
+│ 3│15│27│39│51│
+╰──┴──┴──┴──┴──╯
+
+Column x b3 x a2
+b3
+a2
+╭──┬──┬──┬──┬──╮
+│c1│c2│c3│c4│c5│
+├──┼──┼──┼──┼──┤
+│ 7│19│31│43│55│
+╰──┴──┴──┴──┴──╯
+])
+AT_CHECK([pivot-table-test --table-look $srcdir/output/look.stt pivot.txt --box unicode], [0], [expout])
+AT_CHECK([pspp-output -O box=unicode convert render.spv -], [0], [expout])
 AT_CLEANUP
 
 AT_SETUP([pivot table title and caption])
@@ -411,7 +463,7 @@ AT_DATA([pivot.txt], [[
 /title "(Not Shown)" /caption "Caption Only" /show title=no caption=yes /display
 /title "(Not Shown)" /caption "(Not Shown)" /show title=no caption=no
 ]])
-AT_CHECK([pivot-table-test --table-look $srcdir/output/look.stt pivot.txt --box unicode], [0], [dnl
+AT_DATA([expout], [dnl
 Title + Caption
 ╭──┬──┬──╮
 │  │a1│a2│
@@ -444,6 +496,8 @@ Caption Only
 │b2│ 2│ 3│
 ╰──┴──┴──╯
 ])
+AT_CHECK([pivot-table-test --table-look $srcdir/output/look.stt pivot.txt --box unicode], [0], [expout])
+AT_CHECK([pspp-output -O box=unicode convert render.spv -], [0], [expout])
 AT_CLEANUP
 
 AT_SETUP([pivot table footnotes])
@@ -475,7 +529,7 @@ AT_DATA([pivot.txt], [[
 /title "Hidden Footnote"[footnote 0]
 /footnote[0] "First footnote" marker="*" hide
 ]])
-AT_CHECK([pivot-table-test --table-look $srcdir/output/look.stt pivot.txt --box unicode], [0],
+AT_DATA([expout],
 [[Pivot Table with Alphabetic Subscript Footnotes[*]
 ╭────────────┬──────────────────╮
 │            │       A[*]       │
@@ -540,17 +594,21 @@ Hidden Footnote[*]
 Caption[*]
 2. Second footnote
 ]])
+AT_CHECK([pivot-table-test --table-look $srcdir/output/look.stt pivot.txt --box unicode], [0], [expout])
+AT_CHECK([pspp-output -O box=unicode convert render.spv -], [0], [expout])
 AT_CLEANUP
 
 AT_SETUP([pivot table with no dimensions])
 AT_DATA([pivot.txt], [[
 /title "No Dimensions"
 ]])
-AT_CHECK([pivot-table-test --table-look $srcdir/output/look.stt pivot.txt --box unicode], [0], [dnl
+AT_DATA([expout], [dnl
 No Dimensions
 ╭╮
 ╰╯
 ])
+AT_CHECK([pivot-table-test --table-look $srcdir/output/look.stt pivot.txt --box unicode], [0], [expout])
+AT_CHECK([pspp-output -O box=unicode convert render.spv -], [0], [expout])
 AT_CLEANUP
 
 AT_SETUP([pivot table with empty dimensions])
@@ -561,13 +619,15 @@ AT_DATA([pivot.txt], [[
 /title "Two Empty Dimensions" /row "b"*() /display
 /title "Three Dimensions, Two Empty" /row "c"("c1", "c2")
 ]])
-AT_CHECK([pivot-table-test --table-look $srcdir/output/look.stt pivot.txt --box unicode], [0], [dnl
+AT_DATA([expout], [dnl
 One Empty Dimension
 
 Two Empty Dimensions
 
 Three Dimensions, Two Empty
 ])
+AT_CHECK([pivot-table-test --table-look $srcdir/output/look.stt pivot.txt --box unicode], [0], [expout])
+AT_CHECK([pspp-output -O box=unicode convert render.spv -], [0], [expout])
 AT_CLEANUP
 
 AT_SETUP([pivot table with empty groups])
@@ -578,7 +638,7 @@ AT_DATA([pivot.txt], [[
 /look empty=show
 /display
 ]])
-AT_CHECK([pivot-table-test --table-look $srcdir/output/look.stt pivot.txt --box unicode], [0], [dnl
+AT_DATA([expout], [dnl
 Default Title
 ╭──┬──┬──╮
 │  │a1│a3│
@@ -587,6 +647,8 @@ Default Title
 │b3│ 2│ 3│
 ╰──┴──┴──╯
 ])
+AT_CHECK([pivot-table-test --table-look $srcdir/output/look.stt pivot.txt --box unicode], [0], [expout])
+AT_CHECK([pspp-output -O box=unicode convert render.spv -], [0], [expout])
 AT_CLEANUP
 
 AT_SETUP([pivot table - category and dimension borders])
@@ -607,7 +669,7 @@ AT_DATA([pivot.txt], [[
 	"cat-col-vert" (dashed "red")
 /title "Category and Dimension Borders"
 ]])
-AT_CHECK([pivot-table-test --table-look $srcdir/output/look.stt pivot.txt --box unicode], [0], [dnl
+AT_DATA([expout], [dnl
 Category and Dimension Borders
                      bg1       │
              ╶╌╌╌╌╌╌╌╌┬╌╌╌╌╌╌╌╌┤
@@ -634,6 +696,8 @@ d3    │c1     54│55┊56│57│58┊59│60│61┊62
       │   ├╌╌╌╌╌┼╌╌+╌╌┼╌╌┼╌╌+╌╌┼╌╌┼╌╌+╌╌
       │   ┊c3 72│73┊74│75│76┊77│78│79┊80
 ])
+AT_CHECK([pivot-table-test --table-look $srcdir/output/look.stt pivot.txt --box unicode], [0], [expout])
+AT_CHECK([pspp-output -O box=unicode convert render.spv -], [0], [expout])
 AT_CLEANUP
 
 AT_SETUP([pivot table - small numbers])
@@ -683,7 +747,7 @@ AT_DATA([pivot.txt], [[
 /cell[8, 1, 1] = -.00000001
 /cell[9, 1, 1] = -.000000001
 ]])
-AT_CHECK([pivot-table-test --table-look $srcdir/output/look.stt pivot.txt --box unicode], [0], [dnl
+AT_DATA([expout], [dnl
 small numbers
 ╭────────┬─────────────────────────────────────╮
 │        │             result class            │
@@ -706,4 +770,6 @@ small numbers
 │-9      │1.00E-009│1.00E-009│     .00│     .00│
 ╰────────┴─────────┴─────────┴────────┴────────╯
 ])
+AT_CHECK([pivot-table-test --table-look $srcdir/output/look.stt pivot.txt --box unicode], [0], [expout])
+AT_CHECK([pspp-output -O box=unicode convert render.spv -], [0], [expout])
 AT_CLEANUP
