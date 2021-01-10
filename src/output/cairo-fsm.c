@@ -767,8 +767,7 @@ xr_layout_cell_text (struct xr_fsm *xr, const struct table_cell *cell,
             ds_put_byte (&body, ',');
 
           size_t idx = value->footnote_indexes[i];
-          const struct pivot_footnote *f = pt->footnotes[idx];
-          pivot_value_format (f->marker, pt, &body);
+          pivot_footnote_format_marker (pt->footnotes[idx], pt, &body);
         }
 
       /* Allow footnote markers to occupy the right margin.  That way, numbers
@@ -812,8 +811,11 @@ xr_layout_cell_text (struct xr_fsm *xr, const struct table_cell *cell,
         add_attr (attrs, pango_attr_rise_new (-3000), subscript_ofs,
                   footnote_ofs - subscript_ofs);
       if (value->n_footnotes)
-        add_attr (attrs, pango_attr_rise_new (3000), footnote_ofs,
-                  PANGO_ATTR_INDEX_TO_TEXT_END);
+        {
+          bool superscript = pt->look->footnote_marker_superscripts;
+          add_attr (attrs, pango_attr_rise_new (superscript ? 3000 : -3000),
+                    footnote_ofs, PANGO_ATTR_INDEX_TO_TEXT_END);
+        }
     }
 
   /* Set the attributes, if any. */

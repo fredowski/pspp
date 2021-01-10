@@ -1505,15 +1505,30 @@ pivot_table_create_footnote (struct pivot_table *table,
                                         NULL, content);
 }
 
-static struct pivot_value *
-pivot_make_default_footnote_marker (int idx, bool show_numeric_markers)
+void
+pivot_footnote_format_marker (const struct pivot_footnote *f,
+                              const struct pivot_table *pt,
+                              struct string *s)
 {
-  char text[INT_BUFSIZE_BOUND (size_t)];
-  if (show_numeric_markers)
-    snprintf (text, sizeof text, "%d", idx + 1);
+  if (f->marker)
+    pivot_value_format_body (f->marker, pt, s);
+  else if (pt->look->show_numeric_markers)
+    ds_put_format (s, "%zu", f->idx + 1);
   else
-    str_format_26adic (idx + 1, false, text, sizeof text);
-  return pivot_value_new_user_text (text, -1);
+    {
+      char text[INT_BUFSIZE_BOUND (size_t)];
+      str_format_26adic (f->idx + 1, false, text, sizeof text);
+      ds_put_cstr (s, text);
+    }
+}
+
+char *
+pivot_footnote_marker_string (const struct pivot_footnote *f,
+                              const struct pivot_table *pt)
+{
+  struct string s = DS_EMPTY_INITIALIZER;
+  pivot_footnote_format_marker (f, pt, &s);
+  return ds_steal_cstr (&s);
 }
 
 /* Creates or modifies a footnote in TABLE with 0-based number IDX (and creates
@@ -1533,12 +1548,10 @@ pivot_table_create_footnote__ (struct pivot_table *table, size_t idx,
       while (idx >= table->n_footnotes)
         {
           struct pivot_footnote *f = xmalloc (sizeof *f);
-          f->idx = table->n_footnotes;
-          f->marker = pivot_make_default_footnote_marker (
-            f->idx, table->look->show_numeric_markers);
-          f->content = NULL;
-          f->show = true;
-
+          *f = (struct pivot_footnote) {
+            .idx = table->n_footnotes,
+            .show = true,
+          };
           table->footnotes[table->n_footnotes++] = f;
         }
     }
@@ -2390,13 +2403,16 @@ pivot_value_format_body (const struct pivot_value *value,
 /* Appends a text representation of VALUE to OUT.  Settings on
    PT control whether variable and value labels are included.
 
-   Subscripts and footnotes are included. */
-void
+   Subscripts and footnotes are included.
+
+   Returns true if OUT is a number (or a number plus a value label), false
+   otherwise.  */
+bool
 pivot_value_format (const struct pivot_value *value,
                     const struct pivot_table *pt,
                     struct string *out)
 {
-  pivot_value_format_body (value, pt, out);
+  bool numeric = pivot_value_format_body (value, pt, out);
 
   if (value->n_subscripts)
     {
@@ -2410,10 +2426,12 @@ pivot_value_format (const struct pivot_value *value,
 
       size_t idx = value->footnote_indexes[i];
       const struct pivot_footnote *f = pt->footnotes[idx];
-      pivot_value_format (f->marker, pt, out);
+      pivot_footnote_format_marker (f, pt, out);
 
       ds_put_byte (out, ']');
     }
+
+  return numeric;
 }
 
 /* Returns a text representation of VALUE.  The caller must free the string,
@@ -2841,6 +2859,29 @@ pivot_value_add_footnote (struct pivot_value *v,
   v->footnote_indexes = xrealloc (
     v->footnote_indexes, (v->n_footnotes + 1) * sizeof *v->footnote_indexes);
   v->footnote_indexes[v->n_footnotes++] = footnote->idx;
+  pivot_value_sort_footnotes (v);
+}
+
+static int
+compare_footnote_indexes (const void *a_, const void *b_)
+{
+  const size_t *ap = a_;
+  const size_t *bp = b_;
+  size_t a = *ap;
+  size_t b = *bp;
+  return a < b ? -1 : a > b;
+}
+
+/* Sorts the footnote references in V in the standard ascending order.
+
+   This is only necessary if code adds (plural) footnotes to a pivot_value by
+   itself, because pivot_value_add_footnote() does it automatically. */
+void
+pivot_value_sort_footnotes (struct pivot_value *v)
+{
+  if (v->n_footnotes > 1)
+    qsort (v->footnote_indexes, v->n_footnotes, sizeof *v->footnote_indexes,
+           compare_footnote_indexes);
 }
 
 /* If VALUE is a numeric value, and RC is a result class such as

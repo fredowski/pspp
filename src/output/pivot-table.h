@@ -553,6 +553,12 @@ struct pivot_footnote *pivot_table_create_footnote__ (
   struct pivot_table *, size_t idx,
   struct pivot_value *marker, struct pivot_value *content);
 
+void pivot_footnote_format_marker (const struct pivot_footnote *,
+                                   const struct pivot_table *,
+                                   struct string *);
+char *pivot_footnote_marker_string (const struct pivot_footnote *,
+                                    const struct pivot_table *);
+
 void pivot_footnote_destroy (struct pivot_footnote *);
 
 /* Internals. */
@@ -743,6 +749,7 @@ struct pivot_value *pivot_value_new_user_text_nocopy (char *);
 
 /* Footnotes. */
 void pivot_value_add_footnote (struct pivot_value *, const struct pivot_footnote *);
+void pivot_value_sort_footnotes (struct pivot_value *);
 
 /* Numeric formats. */
 void pivot_value_set_rc (const struct pivot_table *, struct pivot_value *,
@@ -752,7 +759,7 @@ void pivot_value_set_rc (const struct pivot_table *, struct pivot_value *,
 char *pivot_value_to_string (const struct pivot_value *,
                              const struct pivot_table *);
 char *pivot_value_to_string_defaults (const struct pivot_value *);
-void pivot_value_format (const struct pivot_value *,
+bool pivot_value_format (const struct pivot_value *,
                          const struct pivot_table *, struct string *);
 bool pivot_value_format_body (const struct pivot_value *,
                               const struct pivot_table *,
