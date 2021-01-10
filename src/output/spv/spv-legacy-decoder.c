@@ -720,6 +720,9 @@ decode_label_frame (struct pivot_table *table,
               value->text.local = new;
             }
         }
+      if (!value->text.local)
+        value->text.local = xstrdup ("");
+      value->text.c = value->text.id = value->text.local;
       pivot_value_destroy (*target);
       *target = value;
     }
@@ -1272,6 +1275,11 @@ add_dimension (struct spv_series **series, size_t n,
   /* Now drop unnamed 1-category groups and add parent pointers. */
   for (size_t j = 0; j < n_cats; j++)
     add_parents (cats[j], d->root, j);
+  for (size_t j = 0; j < d->n_leaves; j++)
+    {
+      d->data_leaves[j]->data_index = j;
+      d->presentation_leaves[j]->presentation_index = j;
+    }
 
   d->root->subs = cats;
   d->root->n_subs = n_cats;

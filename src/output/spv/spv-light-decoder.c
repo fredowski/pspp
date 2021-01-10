@@ -22,9 +22,11 @@
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistr.h>
 
 #include "libpspp/i18n.h"
 #include "libpspp/message.h"
+#include "libpspp/string-array.h"
 #include "output/pivot-table.h"
 #include "output/spv/light-binary-parser.h"
 #include "output/spv/spv.h"
@@ -32,10 +34,21 @@
 #include "gl/xalloc.h"
 #include "gl/xsize.h"
 
+/* Returns a copy of S converted to UTF-8.  S might be in UTF-8 already or it
+   might be in ENCODING (yes, this makes no sense). */
 static char *
-xstrdup_if_nonempty (const char *s)
+to_utf8 (const char *s, const char *encoding)
 {
-  return s && s[0] ? xstrdup (s) : NULL;
+  size_t length = strlen (s);
+  return (u8_check (CHAR_CAST (const uint8_t *, s), length)
+          ? recode_string ("UTF-8", encoding, s, length)
+          : xstrdup (s));
+}
+
+static char *
+to_utf8_if_nonempty (const char *s, const char *encoding)
+{
+  return s && s[0] ? to_utf8 (s, encoding) : NULL;
 }
 
 static void
@@ -101,7 +114,7 @@ decode_spvlb_color_u32 (uint32_t x)
 
 static char * WARN_UNUSED_RESULT
 decode_spvlb_font_style (const struct spvlb_font_style *in,
-                         struct font_style **outp)
+                         const char *encoding, struct font_style **outp)
 {
   if (!in)
     {
@@ -123,7 +136,7 @@ decode_spvlb_font_style (const struct spvlb_font_style *in,
     .underline = in->underline,
     .fg = { fg, fg },
     .bg = { bg, bg },
-    .typeface = xstrdup (in->typeface),
+    .typeface = to_utf8 (in->typeface, encoding),
     .size = in->size / 1.33,
   };
   return NULL;
@@ -219,17 +232,17 @@ decode_spvlb_cell_style (const struct spvlb_cell_style *in,
 
 static char *decode_spvlb_value (
   const struct pivot_table *, const struct spvlb_value *,
-  struct pivot_value **) WARN_UNUSED_RESULT;
+  const char *encoding, struct pivot_value **) WARN_UNUSED_RESULT;
 
 static char * WARN_UNUSED_RESULT
 decode_spvlb_argument (const struct pivot_table *table,
                        const struct spvlb_argument *in,
-                       struct pivot_argument *out)
+                       const char *encoding, struct pivot_argument *out)
 {
   if (in->value)
     {
       struct pivot_value *value;
-      char *error = decode_spvlb_value (table, in->value, &value);
+      char *error = decode_spvlb_value (table, in->value, encoding, &value);
       if (error)
         return error;
 
@@ -243,7 +256,7 @@ decode_spvlb_argument (const struct pivot_table *table,
       out->values = xnmalloc (in->n_values, sizeof *out->values);
       for (size_t i = 0; i < in->n_values; i++)
         {
-          char *error = decode_spvlb_value (table, in->values[i],
+          char *error = decode_spvlb_value (table, in->values[i], encoding,
                                             &out->values[i]);
           if (error)
             {
@@ -273,7 +286,8 @@ decode_spvlb_value_show (uint8_t in, enum settings_value_show *out)
 
 static char * WARN_UNUSED_RESULT
 decode_spvlb_value (const struct pivot_table *table,
-                    const struct spvlb_value *in, struct pivot_value **outp)
+                    const struct spvlb_value *in,
+                    const char *encoding, struct pivot_value **outp)
 {
   *outp = NULL;
 
@@ -301,16 +315,18 @@ decode_spvlb_value (const struct pivot_table *table,
         error = decode_spvlb_value_show (in->type_02.show, &out->numeric.show);
       if (error)
         return NULL;
-      out->numeric.var_name = xstrdup_if_nonempty (in->type_02.var_name);
-      out->numeric.value_label = xstrdup_if_nonempty (in->type_02.value_label);
+      out->numeric.var_name = to_utf8_if_nonempty (in->type_02.var_name,
+                                                   encoding);
+      out->numeric.value_label = to_utf8_if_nonempty (in->type_02.value_label,
+                                                      encoding);
       break;
 
     case 3:
       vm = in->type_03.value_mod;
       out->type = PIVOT_VALUE_TEXT;
-      out->text.local = xstrdup (in->type_03.local);
-      out->text.c = xstrdup (in->type_03.c);
-      out->text.id = xstrdup (in->type_03.id);
+      out->text.local = to_utf8 (in->type_03.local, encoding);
+      out->text.c = to_utf8 (in->type_03.c, encoding);
+      out->text.id = to_utf8 (in->type_03.id, encoding);
       out->text.user_provided = !in->type_03.fixed;
       break;
 
@@ -320,10 +336,11 @@ decode_spvlb_value (const struct pivot_table *table,
       error = decode_spvlb_value_show (in->type_04.show, &out->string.show);
       if (error)
         return NULL;
-      out->string.s = xstrdup (in->type_04.s);
+      out->string.s = to_utf8 (in->type_04.s, encoding);
       out->string.hex = (in->type_04.format >> 16) == fmt_to_io (FMT_AHEX);
-      out->string.var_name = xstrdup (in->type_04.var_name);
-      out->string.value_label = xstrdup_if_nonempty (in->type_04.value_label);
+      out->string.var_name = to_utf8 (in->type_04.var_name, encoding);
+      out->string.value_label = to_utf8_if_nonempty (in->type_04.value_label,
+                                                     encoding);
       break;
 
     case 5:
@@ -332,23 +349,24 @@ decode_spvlb_value (const struct pivot_table *table,
       error = decode_spvlb_value_show (in->type_05.show, &out->variable.show);
       if (error)
         return error;
-      out->variable.var_name = xstrdup (in->type_05.var_name);
-      out->variable.var_label = xstrdup_if_nonempty (in->type_05.var_label);
+      out->variable.var_name = to_utf8 (in->type_05.var_name, encoding);
+      out->variable.var_label = to_utf8_if_nonempty (in->type_05.var_label,
+                                                     encoding);
       break;
 
     case 6:
       vm = in->type_06.value_mod;
       out->type = PIVOT_VALUE_TEXT;
-      out->text.local = xstrdup (in->type_06.local);
-      out->text.c = xstrdup (in->type_06.c);
-      out->text.id = xstrdup (in->type_06.id);
+      out->text.local = to_utf8 (in->type_06.local, encoding);
+      out->text.c = to_utf8 (in->type_06.c, encoding);
+      out->text.id = to_utf8 (in->type_06.id, encoding);
       out->text.user_provided = false;
       break;
 
     case -1:
       vm = in->type_else.value_mod;
       out->type = PIVOT_VALUE_TEMPLATE;
-      out->template.local = xstrdup (in->type_else.template);
+      out->template.local = to_utf8 (in->type_else.template, encoding);
       out->template.id = out->template.local;
       out->template.n_args = 0;
       out->template.args = xnmalloc (in->type_else.n_args,
@@ -356,7 +374,7 @@ decode_spvlb_value (const struct pivot_table *table,
       for (size_t i = 0; i < in->type_else.n_args; i++)
         {
           error = decode_spvlb_argument (table, in->type_else.args[i],
-                                         &out->template.args[i]);
+                                         encoding, &out->template.args[i]);
           if (error)
             {
               pivot_value_destroy (out);
@@ -378,7 +396,7 @@ decode_spvlb_value (const struct pivot_table *table,
           out->subscripts = xnmalloc (vm->n_subscripts,
                                       sizeof *out->subscripts);
           for (size_t i = 0; i < vm->n_subscripts; i++)
-            out->subscripts[i] = xstrdup (vm->subscripts[i]);
+            out->subscripts[i] = to_utf8 (vm->subscripts[i], encoding);
         }
 
       if (vm->n_refs)
@@ -402,7 +420,7 @@ decode_spvlb_value (const struct pivot_table *table,
       if (vm->style_pair)
         {
           error = decode_spvlb_font_style (vm->style_pair->font_style,
-                                           &out->font_style);
+                                           encoding, &out->font_style);
           if (!error)
             error = decode_spvlb_cell_style (vm->style_pair->cell_style,
                                              &out->cell_style);
@@ -417,7 +435,7 @@ decode_spvlb_value (const struct pivot_table *table,
           && vm->template_string->id
           && vm->template_string->id[0]
           && out->type == PIVOT_VALUE_TEMPLATE)
-        out->template.id = xstrdup (vm->template_string->id);
+        out->template.id = to_utf8 (vm->template_string->id, encoding);
     }
 
   *outp = out;
@@ -425,7 +443,8 @@ decode_spvlb_value (const struct pivot_table *table,
 }
 
 static char * WARN_UNUSED_RESULT
-decode_spvlb_area (const struct spvlb_area *in, struct table_area_style *out)
+decode_spvlb_area (const struct spvlb_area *in, struct table_area_style *out,
+                   const char *encoding)
 {
   char *error;
 
@@ -465,7 +484,7 @@ decode_spvlb_area (const struct spvlb_area *in, struct table_area_style *out)
       .underline = in->underline,
       .fg = { fg0, in->alternate ? fg1 : fg0 },
       .bg = { bg0, in->alternate ? bg1 : bg0 },
-      .typeface = xstrdup (in->typeface),
+      .typeface = to_utf8 (in->typeface, encoding),
       .size = in->size / 1.33,
     },
     .cell_style = {
@@ -486,14 +505,16 @@ decode_spvlb_group (const struct pivot_table *,
                     size_t n_categories,
                     bool show_label,
                     struct pivot_category *parent,
-                    struct pivot_dimension *);
+                    struct pivot_dimension *,
+                    const char *encoding);
 
 static char * WARN_UNUSED_RESULT
 decode_spvlb_categories (const struct pivot_table *table,
                          struct spvlb_category **categories,
                          size_t n_categories,
                          struct pivot_category *parent,
-                         struct pivot_dimension *dimension)
+                         struct pivot_dimension *dimension,
+                         const char *encoding)
 {
   for (size_t i = 0; i < n_categories; i++)
     {
@@ -502,7 +523,7 @@ decode_spvlb_categories (const struct pivot_table *table,
         {
           char *error = decode_spvlb_categories (
             table, in->group->subcategories, in->group->n_subcategories,
-            parent, dimension);
+            parent, dimension, encoding);
           if (error)
             return error;
 
@@ -510,7 +531,7 @@ decode_spvlb_categories (const struct pivot_table *table,
         }
 
       struct pivot_value *name;
-      char *error = decode_spvlb_value (table, in->name, &name);
+      char *error = decode_spvlb_value (table, in->name, encoding, &name);
       if (error)
         return error;
 
@@ -522,7 +543,7 @@ decode_spvlb_categories (const struct pivot_table *table,
         {
           char *error = decode_spvlb_group (table, in->group->subcategories,
                                             in->group->n_subcategories,
-                                            true, out, dimension);
+                                            true, out, dimension, encoding);
           if (error)
             {
               pivot_category_destroy (out);
@@ -552,7 +573,8 @@ decode_spvlb_group (const struct pivot_table *table,
                     struct spvlb_category **categories,
                     size_t n_categories, bool show_label,
                     struct pivot_category *category,
-                    struct pivot_dimension *dimension)
+                    struct pivot_dimension *dimension,
+                    const char *encoding)
 {
   category->subs = XCALLOC (n_categories, struct pivot_category *);
   category->n_subs = 0;
@@ -560,7 +582,7 @@ decode_spvlb_group (const struct pivot_table *table,
   category->show_label = show_label;
 
   return decode_spvlb_categories (table, categories, n_categories, category,
-                                  dimension);
+                                  dimension, encoding);
 }
 
 static char * WARN_UNUSED_RESULT
@@ -593,11 +615,12 @@ fill_leaves (struct pivot_category *category,
 static char * WARN_UNUSED_RESULT
 decode_spvlb_dimension (const struct pivot_table *table,
                         const struct spvlb_dimension *in,
-                        size_t idx, struct pivot_dimension **outp)
+                        size_t idx, const char *encoding,
+                        struct pivot_dimension **outp)
 {
   /* Convert most of the dimension. */
   struct pivot_value *name;
-  char *error = decode_spvlb_value (table, in->name, &name);
+  char *error = decode_spvlb_value (table, in->name, encoding, &name);
   if (error)
     return error;
 
@@ -615,7 +638,7 @@ decode_spvlb_dimension (const struct pivot_table *table,
   };
   error = decode_spvlb_group (table, in->categories, in->n_categories,
                               !in->props->hide_dim_label, out->root,
-                              out);
+                              out, encoding);
   if (error)
     goto error;
 
@@ -725,7 +748,7 @@ decode_data_index (uint64_t in, const struct pivot_table *table,
 
 static char * WARN_UNUSED_RESULT
 decode_spvlb_cells (struct spvlb_cell **in, size_t n_in,
-                    struct pivot_table *table)
+                    struct pivot_table *table, const char *encoding)
 {
   if (!table->n_dimensions)
     return NULL;
@@ -736,7 +759,7 @@ decode_spvlb_cells (struct spvlb_cell **in, size_t n_in,
       struct pivot_value *value;
       char *error = decode_data_index (in[i]->index, table, dindexes);
       if (!error)
-        error = decode_spvlb_value (table, in[i]->value, &value);
+        error = decode_spvlb_value (table, in[i]->value, encoding, &value);
       if (error)
         {
           free (dindexes);
@@ -750,18 +773,18 @@ decode_spvlb_cells (struct spvlb_cell **in, size_t n_in,
 }
 
 static char * WARN_UNUSED_RESULT
-decode_spvlb_footnote (const struct spvlb_footnote *in,
+decode_spvlb_footnote (const struct spvlb_footnote *in, const char *encoding,
                        size_t idx, struct pivot_table *table)
 {
   struct pivot_value *content;
-  char *error = decode_spvlb_value (table, in->text, &content);
+  char *error = decode_spvlb_value (table, in->text, encoding, &content);
   if (error)
     return error;
 
   struct pivot_value *marker = NULL;
   if (in->marker)
     {
-      error = decode_spvlb_value (table, in->marker, &marker);
+      error = decode_spvlb_value (table, in->marker, encoding, &marker);
       if (error)
         {
           pivot_value_destroy (content);
@@ -814,6 +837,11 @@ decode_spvlb_table (const struct spvlb_table *in, struct pivot_table **outp)
   hmap_init (&out->cells);
   out->look = pivot_table_look_new_builtin_default ();
   out->settings = (struct fmt_settings) FMT_SETTINGS_INIT;
+
+  const struct spvlb_y1 *y1 = (in->formats->x0 ? in->formats->x0->y1
+                               : in->formats->x3 ? in->formats->x3->y1
+                               : NULL);
+  const char *encoding = spvlb_table_get_encoding (in);
 
   /* Display settings. */
   out->look->show_numeric_markers = !in->ts->show_alphabetic_markers;
@@ -870,8 +898,8 @@ decode_spvlb_table (const struct spvlb_table *in, struct pivot_table **outp)
                  &out->sizing[TABLE_HORZ].keeps,
                  &out->sizing[TABLE_HORZ].n_keeps);
 
-  out->notes = xstrdup_if_nonempty (in->ts->notes);
-  out->look->name = xstrdup_if_nonempty (in->ts->table_look);
+  out->notes = to_utf8_if_nonempty (in->ts->notes, encoding);
+  out->look->name = to_utf8_if_nonempty (in->ts->table_look, encoding);
 
   /* Print settings. */
   out->look->print_all_layers = in->ps->all_layers;
@@ -880,7 +908,7 @@ decode_spvlb_table (const struct spvlb_table *in, struct pivot_table **outp)
   out->look->shrink_to_fit[TABLE_VERT] = in->ps->fit_length;
   out->look->top_continuation = in->ps->top_continuation;
   out->look->bottom_continuation = in->ps->bottom_continuation;
-  out->look->continuation = xstrdup (in->ps->continuation_string);
+  out->look->continuation = to_utf8 (in->ps->continuation_string, encoding);
   out->look->n_orphan_lines = in->ps->n_orphan_lines;
 
   /* Format settings. */
@@ -907,16 +935,13 @@ decode_spvlb_table (const struct spvlb_table *in, struct pivot_table **outp)
   out->small = in->formats->x3 ? in->formats->x3->small : 0;
 
   /* Command information. */
-  const struct spvlb_y1 *y1 = (in->formats->x0 ? in->formats->x0->y1
-                               : in->formats->x3 ? in->formats->x3->y1
-                               : NULL);
   if (y1)
     {
-      out->command_local = xstrdup (y1->command_local);
-      out->command_c = xstrdup (y1->command);
-      out->language = xstrdup (y1->language);
+      out->command_local = to_utf8 (y1->command_local, encoding);
+      out->command_c = to_utf8 (y1->command, encoding);
+      out->language = to_utf8 (y1->language, encoding);
       /* charset? */
-      out->locale = xstrdup (y1->locale);
+      out->locale = to_utf8 (y1->locale, encoding);
     }
 
   /* Source information. */
@@ -924,8 +949,8 @@ decode_spvlb_table (const struct spvlb_table *in, struct pivot_table **outp)
   if (x3)
     {
       if (x3->dataset && x3->dataset[0] && x3->dataset[0] != 4)
-        out->dataset = xstrdup (x3->dataset);
-      out->datafile = xstrdup_if_nonempty (x3->datafile);
+        out->dataset = to_utf8 (x3->dataset, encoding);
+      out->datafile = to_utf8_if_nonempty (x3->datafile, encoding);
       out->date = x3->date;
     }
 
@@ -947,32 +972,36 @@ decode_spvlb_table (const struct spvlb_table *in, struct pivot_table **outp)
       pivot_table_create_footnote__ (out, fn->n_footnotes - 1, NULL, NULL);
       for (size_t i = 0; i < fn->n_footnotes; i++)
         {
-          error = decode_spvlb_footnote (in->footnotes->footnotes[i], i, out);
+          error = decode_spvlb_footnote (in->footnotes->footnotes[i],
+                                         encoding, i, out);
           if (error)
             goto error;
         }
     }
 
   /* Title and caption. */
-  error = decode_spvlb_value (out, in->titles->user_title, &out->title);
+  error = decode_spvlb_value (out, in->titles->user_title, encoding,
+                              &out->title);
   if (error)
     goto error;
 
-  error = decode_spvlb_value (out, in->titles->subtype, &out->subtype);
+  error = decode_spvlb_value (out, in->titles->subtype, encoding,
+                              &out->subtype);
   if (error)
     goto error;
 
   if (in->titles->corner_text)
     {
       error = decode_spvlb_value (out, in->titles->corner_text,
-                                  &out->corner_text);
+                                  encoding, &out->corner_text);
       if (error)
         goto error;
     }
 
   if (in->titles->caption)
     {
-      error = decode_spvlb_value (out, in->titles->caption, &out->caption);
+      error = decode_spvlb_value (out, in->titles->caption, encoding,
+                                  &out->caption);
       if (error)
         goto error;
     }
@@ -981,7 +1010,8 @@ decode_spvlb_table (const struct spvlb_table *in, struct pivot_table **outp)
   /* Styles. */
   for (size_t i = 0; i < PIVOT_N_AREAS; i++)
     {
-      error = decode_spvlb_area (in->areas->areas[i], &out->look->areas[i]);
+      error = decode_spvlb_area (in->areas->areas[i], &out->look->areas[i],
+                                 encoding);
       if (error)
         goto error;
     }
@@ -998,7 +1028,7 @@ decode_spvlb_table (const struct spvlb_table *in, struct pivot_table **outp)
   for (size_t i = 0; i < out->n_dimensions; i++)
     {
       error = decode_spvlb_dimension (out, in->dimensions->dims[i],
-                                      i, &out->dimensions[i]);
+                                      i, encoding, &out->dimensions[i]);
       if (error)
         goto error;
     }
@@ -1034,7 +1064,8 @@ decode_spvlb_table (const struct spvlb_table *in, struct pivot_table **outp)
     goto error;
 
   /* Data. */
-  error = decode_spvlb_cells (in->cells->cells, in->cells->n_cells, out);
+  error = decode_spvlb_cells (in->cells->cells, in->cells->n_cells, out,
+                              encoding);
 
   *outp = out;
   return NULL;
@@ -1042,4 +1073,172 @@ decode_spvlb_table (const struct spvlb_table *in, struct pivot_table **outp)
 error:
   pivot_table_unref (out);
   return error;
+}
+
+/* collect_spvlb_strings */
+
+static void
+add_if_nonempty (struct string_array *strings, const char *s)
+{
+  if (s && s[0])
+    string_array_append (strings, s);
+}
+
+static void
+collect_value_mod_strings (struct string_array *strings,
+                           const struct spvlb_value_mod *vm)
+{
+  if (vm->template_string)
+    add_if_nonempty (strings, vm->template_string->id);
+
+  if (vm->style_pair && vm->style_pair->font_style)
+    add_if_nonempty (strings, vm->style_pair->font_style->typeface);
+}
+
+static void
+collect_value_strings (struct string_array *strings,
+                       const struct spvlb_value *value)
+{
+  if (!value)
+    return;
+
+  switch (value->type)
+    {
+    case 1:
+      collect_value_mod_strings (strings, value->type_01.value_mod);
+      break;
+
+    case 2:
+      collect_value_mod_strings (strings, value->type_02.value_mod);
+      add_if_nonempty (strings, value->type_02.var_name);
+      add_if_nonempty (strings, value->type_02.value_label);
+      break;
+
+    case 3:
+      collect_value_mod_strings (strings, value->type_03.value_mod);
+      add_if_nonempty (strings, value->type_03.local);
+      add_if_nonempty (strings, value->type_03.id);
+      add_if_nonempty (strings, value->type_03.c);
+      break;
+
+    case 4:
+      collect_value_mod_strings (strings, value->type_04.value_mod);
+      add_if_nonempty (strings, value->type_04.value_label);
+      add_if_nonempty (strings, value->type_04.var_name);
+      add_if_nonempty (strings, value->type_04.s);
+      break;
+
+    case 5:
+      collect_value_mod_strings (strings, value->type_05.value_mod);
+      add_if_nonempty (strings, value->type_05.var_name);
+      add_if_nonempty (strings, value->type_05.var_label);
+      break;
+
+    case 6:
+      collect_value_mod_strings (strings, value->type_06.value_mod);
+      add_if_nonempty (strings, value->type_06.local);
+      add_if_nonempty (strings, value->type_06.id);
+      add_if_nonempty (strings, value->type_06.c);
+      break;
+
+    case -1:
+      collect_value_mod_strings (strings, value->type_else.value_mod);
+      add_if_nonempty (strings, value->type_else.template);
+      for (size_t i = 0; i < value->type_else.n_args; i++)
+        {
+          const struct spvlb_argument *a = value->type_else.args[i];
+          collect_value_strings (strings, a->value);
+          for (size_t j = 0; j < a->n_values; j++)
+            collect_value_strings (strings, a->values[j]);
+        }
+      break;
+    }
+}
+
+static void
+collect_category_strings (struct string_array *strings,
+                          const struct spvlb_category *cat)
+{
+  collect_value_strings (strings, cat->name);
+  if (cat->group)
+    for (size_t i = 0; i < cat->group->n_subcategories; i++)
+      collect_category_strings (strings, cat->group->subcategories[i]);
+}
+
+/* Adds all of the characters strings in TABLE to STRINGS. */
+void
+collect_spvlb_strings (const struct spvlb_table *table,
+                       struct string_array *strings)
+{
+  add_if_nonempty (strings, table->ts->notes);
+  add_if_nonempty (strings, table->ts->table_look);
+  add_if_nonempty (strings, table->ps->continuation_string);
+
+  const struct spvlb_custom_currency *cc = table->formats->custom_currency;
+  if (cc)
+    for (int i = 0; i < cc->n_ccs; i++)
+      add_if_nonempty (strings, cc->ccs[i]);
+
+  const struct spvlb_y1 *y1 = (table->formats->x0 ? table->formats->x0->y1
+                               : table->formats->x3 ? table->formats->x3->y1
+                               : NULL);
+  if (y1)
+    {
+      add_if_nonempty (strings, y1->command_local);
+      add_if_nonempty (strings, y1->command);
+      add_if_nonempty (strings, y1->language);
+      add_if_nonempty (strings, y1->charset);
+      add_if_nonempty (strings, y1->locale);
+    }
+
+  const struct spvlb_x3 *x3 = table->formats->x3;
+  if (x3)
+    {
+      if (x3->dataset && x3->dataset[0] && x3->dataset[0] != 4)
+        add_if_nonempty (strings, x3->dataset);
+      add_if_nonempty (strings, x3->datafile);
+    }
+
+  for (size_t i = 0; i < table->footnotes->n_footnotes; i++)
+    {
+      const struct spvlb_footnote *f = table->footnotes->footnotes[i];
+      collect_value_strings (strings, f->text);
+      collect_value_strings (strings, f->marker);
+    }
+
+  collect_value_strings (strings, table->titles->user_title);
+  collect_value_strings (strings, table->titles->subtype);
+  collect_value_strings (strings, table->titles->corner_text);
+  collect_value_strings (strings, table->titles->caption);
+
+  for (size_t i = 0; i < PIVOT_N_AREAS; i++)
+    add_if_nonempty (strings, table->areas->areas[i]->typeface);
+
+  for (size_t i = 0; i < table->dimensions->n_dims; i++)
+    {
+      const struct spvlb_dimension *d = table->dimensions->dims[i];
+      collect_value_strings (strings, d->name);
+      for (size_t j = 0; j < d->n_categories; j++)
+        collect_category_strings (strings, d->categories[j]);
+    }
+
+  for (size_t i = 0; i < table->cells->n_cells; i++)
+    collect_value_strings (strings, table->cells->cells[i]->value);
+}
+
+/* Returns the encoding that TABLE declares to be in use for its strings.
+   (Watch out, it's not always correct.) */
+const char *
+spvlb_table_get_encoding (const struct spvlb_table *table)
+{
+  const struct spvlb_y1 *y1 = (table->formats->x0 ? table->formats->x0->y1
+                               : table->formats->x3 ? table->formats->x3->y1
+                               : NULL);
+  if (y1)
+    return y1->charset;
+  else
+    {
+      const char *dot = strchr (table->formats->locale, '.');
+      return dot ? dot + 1 : "windows-1252";
+    }
 }

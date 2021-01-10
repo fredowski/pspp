@@ -988,7 +988,10 @@ clone_category (struct pivot_category *old,
 
   if (pivot_category_is_leaf (old))
     {
+      assert (new->data_index < new_dimension->n_leaves);
       new->dimension->data_leaves[new->data_index] = new;
+
+      assert (new->presentation_index < new_dimension->n_leaves);
       new->dimension->presentation_leaves[new->presentation_index] = new;
     }
 
@@ -1261,7 +1264,6 @@ pivot_table_move_dimension (struct pivot_table *table,
       /* No change. */
       return;
     }
-
 
   /* Update the current layer, if necessary.  If we're moving within the layer
      axis, preserve the current layer. */
@@ -1581,8 +1583,8 @@ pivot_table_convert_indexes_ptod (const struct pivot_table *table,
       for (size_t j = 0; j < axis->n_dimensions; j++)
         {
           const struct pivot_dimension *d = axis->dimensions[j];
-          dindexes[d->top_index]
-            = d->presentation_leaves[pindexes[i][j]]->data_index;
+          size_t pindex = pindexes[i][j];
+          dindexes[d->top_index] = d->presentation_leaves[pindex]->data_index;
         }
     }
 }
@@ -2448,7 +2450,7 @@ pivot_value_clone (const struct pivot_value *old)
       font_style_copy (NULL, new->font_style, old->font_style);
     }
   if (old->cell_style)
-    new->font_style = xmemdup (old->font_style, sizeof *new->font_style);
+    new->cell_style = xmemdup (old->cell_style, sizeof *new->cell_style);
   if (old->n_subscripts)
     {
       new->subscripts = xnmalloc (old->n_subscripts, sizeof *new->subscripts);
@@ -2480,10 +2482,10 @@ pivot_value_clone (const struct pivot_value *old)
     case PIVOT_VALUE_TEXT:
       new->text.local = xstrdup (old->text.local);
       new->text.c = (old->text.c == old->text.local ? new->text.local
-                     : xstrdup (old->text.c));
+                     : xstrdup_if_nonnull (old->text.c));
       new->text.id = (old->text.id == old->text.local ? new->text.local
                       : old->text.id == old->text.c ? new->text.c
-                      : xstrdup (old->text.id));
+                      : xstrdup_if_nonnull (old->text.id));
       break;
 
     case PIVOT_VALUE_TEMPLATE:
