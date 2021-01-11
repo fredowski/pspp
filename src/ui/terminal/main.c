@@ -47,7 +47,7 @@
 #include "libpspp/version.h"
 #include "math/random.h"
 #include "output/driver.h"
-#include "output/message-item.h"
+#include "output/output-item.h"
 #include "ui/source-init-opts.h"
 #include "ui/terminal/terminal-opts.h"
 #include "ui/terminal/terminal-reader.h"
@@ -227,9 +227,9 @@ output_msg (const struct msg *m_, void *lexer_)
       m.last_line = lex_get_last_line_number (lexer, 0);
     }
 
-  m.command_name = output_get_command_name ();
+  m.command_name = output_get_uppercase_command_name ();
 
-  message_item_submit (message_item_create (&m));
+  output_item_submit (message_item_create (&m));
 
   free (m.command_name);
 }

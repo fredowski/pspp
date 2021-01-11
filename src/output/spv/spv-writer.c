@@ -34,15 +34,10 @@
 #include "libpspp/version.h"
 #include "libpspp/zip-writer.h"
 #include "output/cairo-chart.h"
-#include "output/chart-item.h"
 #include "output/driver.h"
-#include "output/group-item.h"
-#include "output/image-item.h"
-#include "output/page-break-item.h"
-#include "output/page-setup-item.h"
+#include "output/output-item.h"
+#include "output/page-setup.h"
 #include "output/pivot-table.h"
-#include "output/table-item.h"
-#include "output/text-item.h"
 
 #include "gl/xalloc.h"
 #include "gl/xvasprintf.h"
@@ -227,8 +222,7 @@ spv_writer_open_file (struct spv_writer *w)
 }
 
 static void
-spv_writer_open_heading (struct spv_writer *w, const char *command_id,
-                         const char *label)
+spv_writer_open_heading (struct spv_writer *w, const struct output_item *item)
 {
   if (!w->heading)
     {
@@ -238,12 +232,13 @@ spv_writer_open_heading (struct spv_writer *w, const char *command_id,
 
   w->heading_depth++;
   start_elem (w, "heading");
-  write_attr (w, "commandName", command_id);
+  if (item->command_name)
+    write_attr (w, "commandName", item->command_name);
   /* XXX locale */
   /* XXX olang */
 
   start_elem (w, "label");
-  write_text (w, label);
+  write_text (w, output_item_get_label (item));
   end_elem (w);
 }
 
@@ -281,7 +276,8 @@ spv_writer_close_heading (struct spv_writer *w)
 }
 
 static void
-start_container (struct spv_writer *w, const struct output_item *item)
+open_container (struct spv_writer *w, const struct output_item *item,
+                const char *inner_elem)
 {
   start_elem (w, "container");
   write_attr (w, "visibility", "visible");
@@ -294,33 +290,44 @@ start_container (struct spv_writer *w, const struct output_item *item)
   start_elem (w, "label");
   write_text (w, output_item_get_label (item));
   end_elem (w);
+
+  start_elem (w, inner_elem);
+  if (item->command_name)
+    write_attr (w, "commandName", item->command_name);
 }
 
 static void
-spv_writer_put_text (struct spv_writer *w, const struct text_item *text,
-                     const char *command_id)
+close_container (struct spv_writer *w)
+{
+  end_elem (w);
+  end_elem (w);
+}
+
+static void
+spv_writer_put_text (struct spv_writer *w, struct output_item *item)
 {
   bool initial_depth = w->heading_depth;
   if (!initial_depth)
     spv_writer_open_file (w);
 
-  start_container (w, &text->output_item);
-
-  start_elem (w, "vtx:text");
-  write_attr (w, "type", (text->type == TEXT_ITEM_TITLE ? "title"
-                          : text->type == TEXT_ITEM_PAGE_TITLE ? "page-title"
-                          : "log"));
-  if (command_id)
-    write_attr (w, "commandName", command_id);
+  open_container (w, item, "vtx:text");
+  write_attr (w, "type",
+              (item->text.subtype == TEXT_ITEM_TITLE ? "title"
+               : item->text.subtype == TEXT_ITEM_PAGE_TITLE ? "page-title"
+               : "log"));
 
   start_elem (w, "html");
-  write_text (w, text->text);   /* XXX */
-  end_elem (w); /* html */
-  end_elem (w); /* vtx:text */
-  end_elem (w); /* container */
+  char *s = text_item_get_plain_text (item);
+  write_text (w, s);
+  free (s);
+  end_elem (w);
+
+  close_container (w);
 
   if (!initial_depth)
     spv_writer_close_file (w, "");
+
+  output_item_unref (item);
 }
 
 static cairo_status_t
@@ -342,13 +349,10 @@ spv_writer_put_image (struct spv_writer *w, const struct output_item *item,
 
   char *uri = xasprintf ("%010d_Imagegeneric.png", ++w->n_tables);
 
-  start_container (w, item);
-
-  start_elem (w, "object");
+  open_container (w, item, "object");
   write_attr (w, "type", "unknown");
   write_attr (w, "uri", uri);
-  end_elem (w); /* object */
-  end_elem (w); /* container */
+  close_container (w);
 
   if (!initial_depth)
     spv_writer_close_file (w, "");
@@ -1045,7 +1049,7 @@ put_light_table (struct buf *buf, uint64_t table_id,
 }
 
 static void
-spv_writer_put_table (struct spv_writer *w, const struct table_item *item)
+spv_writer_put_table (struct spv_writer *w, const struct output_item *item)
 {
   int table_id = ++w->n_tables;
 
@@ -1053,18 +1057,14 @@ spv_writer_put_table (struct spv_writer *w, const struct table_item *item)
   if (!initial_depth)
     spv_writer_open_file (w);
 
-  start_container (w, &item->output_item);
+  open_container (w, item, "vtb:table");
 
-  char *subtype = (item->pt->subtype
-                   ? pivot_value_to_string (item->pt->subtype, item->pt)
-                   : xstrdup ("unknown"));
-
-  start_elem (w, "vtb:table");
-  write_attr (w, "commandName", item->pt->command_c);
   write_attr (w, "type", "table"); /* XXX */
-  write_attr (w, "subType", subtype);
   write_attr_format (w, "tableId", "%d", table_id);
-
+  char *subtype = (item->table->subtype
+                   ? pivot_value_to_string (item->table->subtype, item->table)
+                   : xstrdup ("unknown"));
+  write_attr (w, "subType", subtype);
   free (subtype);
 
   start_elem (w, "vtb:tableStructure");
@@ -1073,14 +1073,14 @@ spv_writer_put_table (struct spv_writer *w, const struct table_item *item)
   write_text (w, data_path);
   end_elem (w); /* vtb:dataPath */
   end_elem (w); /* vtb:tableStructure */
-  end_elem (w); /* vtb:table */
-  end_elem (w); /* container */
+
+  close_container (w);
 
   if (!initial_depth)
     spv_writer_close_file (w, "");
 
   struct buf buf = { NULL, 0, 0 };
-  put_light_table (&buf, table_id, item->pt);
+  put_light_table (&buf, table_id, item->table);
   zip_writer_add_memory (w->zw, data_path, buf.data, buf.len);
   free (buf.data);
 
@@ -1090,38 +1090,52 @@ spv_writer_put_table (struct spv_writer *w, const struct table_item *item)
 void
 spv_writer_write (struct spv_writer *w, const struct output_item *item)
 {
-  if (is_group_open_item (item))
-    spv_writer_open_heading (w,
-                             to_group_open_item (item)->command_name,
-                             to_group_open_item (item)->command_name);
-  else if (is_group_close_item (item))
-    spv_writer_close_heading (w);
-  else if (is_table_item (item))
-    spv_writer_put_table (w, to_table_item (item));
-  else if (is_chart_item (item))
+  switch (item->type)
     {
-      cairo_surface_t *surface = xr_draw_image_chart (
-        to_chart_item (item),
-        &(struct cell_color) CELL_COLOR_BLACK,
-        &(struct cell_color) CELL_COLOR_WHITE);
-      if (cairo_surface_status (surface) == CAIRO_STATUS_SUCCESS)
-        spv_writer_put_image (w, item, surface);
-      cairo_surface_destroy (surface);
-    }
-  else if (is_image_item (item))
-    spv_writer_put_image (w, item, to_image_item (item)->image);
-  else if (is_text_item (item))
-    {
-      char *command_id = output_get_command_name ();
-      spv_writer_put_text (w, to_text_item (item),
-                           command_id);
-      free (command_id);
-    }
-  else if (is_page_break_item (item))
-    w->need_page_break = true;
-  else if (is_page_setup_item (item))
-    {
+    case OUTPUT_ITEM_CHART:
+      {
+        cairo_surface_t *surface = xr_draw_image_chart (
+          item->chart,
+          &(struct cell_color) CELL_COLOR_BLACK,
+          &(struct cell_color) CELL_COLOR_WHITE);
+        if (cairo_surface_status (surface) == CAIRO_STATUS_SUCCESS)
+          spv_writer_put_image (w, item, surface);
+        cairo_surface_destroy (surface);
+      }
+      break;
+
+    case OUTPUT_ITEM_GROUP_OPEN:
+      spv_writer_open_heading (w, item);
+      break;
+
+    case OUTPUT_ITEM_GROUP_CLOSE:
+      spv_writer_close_heading (w);
+      break;
+
+    case OUTPUT_ITEM_IMAGE:
+      spv_writer_put_image (w, item, item->image);
+      break;
+
+    case OUTPUT_ITEM_MESSAGE:
+      spv_writer_put_text (
+        w, message_item_to_text_item (output_item_ref (item)));
+      break;
+
+    case OUTPUT_ITEM_PAGE_BREAK:
+      w->need_page_break = true;
+      break;
+
+    case OUTPUT_ITEM_PAGE_SETUP:
       page_setup_destroy (w->page_setup);
-      w->page_setup = page_setup_clone (to_page_setup_item (item)->page_setup);
+      w->page_setup = page_setup_clone (item->page_setup);
+      break;
+
+    case OUTPUT_ITEM_TABLE:
+      spv_writer_put_table (w, item);
+      break;
+
+    case OUTPUT_ITEM_TEXT:
+      spv_writer_put_text (w, output_item_ref (item));
+      break;
     }
 }

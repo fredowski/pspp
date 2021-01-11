@@ -32,10 +32,9 @@
 #include "libpspp/i18n.h"
 #include "libpspp/string-map.h"
 #include "output/driver.h"
-#include "output/message-item.h"
 #include "output/options.h"
+#include "output/output-item.h"
 #include "output/pivot-table.h"
-#include "output/table-item.h"
 
 #include "gl/error.h"
 #include "gl/progname.h"
@@ -1237,9 +1236,9 @@ output_msg (const struct msg *m_, void *lexer_)
       m.last_line = lex_get_last_line_number (lexer, 0);
     }
 
-  m.command_name = output_get_command_name ();
+  m.command_name = output_get_uppercase_command_name ();
 
-  message_item_submit (message_item_create (&m));
+  output_item_submit (message_item_create (&m));
 
   free (m.command_name);
 }
