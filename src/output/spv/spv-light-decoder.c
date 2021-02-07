@@ -96,7 +96,7 @@ static char * WARN_UNUSED_RESULT
 decode_spvlb_color_string (const char *s, uint8_t def,
                            struct cell_color *colorp)
 {
-  int r, g, b;
+  unsigned int r, g, b;
   if (!*s)
     r = g = b = def;
   else if (sscanf (s, "#%2x%2x%2x", &r, &g, &b) != 3)
@@ -919,7 +919,7 @@ decode_spvlb_table (const struct spvlb_table *in, struct pivot_table **outp)
   if (epoch >= 1000 && epoch <= 9999)
     out->settings.epoch = epoch;
   char decimal = in->formats->y0->decimal;
-  if (decimal == '.' || decimal == '.')
+  if (decimal == '.' || decimal == ',')
     out->settings.decimal = decimal;
   else
     {
