@@ -184,10 +184,7 @@ fmt_settings_set_cc (struct fmt_settings *settings, enum fmt_type type,
 struct fmt_spec
 fmt_for_input (enum fmt_type type, int w, int d)
 {
-  struct fmt_spec f;
-  f.type = type;
-  f.w = w;
-  f.d = d;
+  struct fmt_spec f = { .type = type, .w = w, .d = d };
   assert (fmt_check_input (&f));
   return f;
 }
@@ -197,10 +194,7 @@ fmt_for_input (enum fmt_type type, int w, int d)
 struct fmt_spec
 fmt_for_output (enum fmt_type type, int w, int d)
 {
-  struct fmt_spec f;
-  f.type = type;
-  f.w = w;
-  f.d = d;
+  struct fmt_spec f = { .type = type, .w = w, .d = d };
   assert (fmt_check_output (&f));
   return f;
 }
@@ -1144,12 +1138,8 @@ fmt_clamp_width (struct fmt_spec *fmt, enum fmt_use use)
 static void
 fmt_clamp_decimals (struct fmt_spec *fmt, enum fmt_use use)
 {
-  int max_d;
-
-  max_d = fmt_max_decimals (fmt->type, fmt->w, use);
-  if (fmt->d < 0)
-    fmt->d = 0;
-  else if (fmt->d > max_d)
+  int max_d = fmt_max_decimals (fmt->type, fmt->w, use);
+  if (fmt->d > max_d)
     fmt->d = max_d;
 }
 
@@ -1334,7 +1324,7 @@ get_fmt_desc (enum fmt_type type)
   return &formats[type];
 }
 
-const struct fmt_spec F_8_0 = {FMT_F, 8, 0};
-const struct fmt_spec F_8_2 = {FMT_F, 8, 2};
-const struct fmt_spec F_4_3 = {FMT_F, 4, 3};
-const struct fmt_spec F_5_1 = {FMT_F, 5, 1};
+const struct fmt_spec F_8_0 = { .type = FMT_F, .w = 8, .d = 0 };
+const struct fmt_spec F_8_2 = { .type = FMT_F, .w = 8, .d = 2 };
+const struct fmt_spec F_4_3 = { .type = FMT_F, .w = 4, .d = 3 };
+const struct fmt_spec F_5_1 = { .type = FMT_F, .w = 5, .d = 1 };

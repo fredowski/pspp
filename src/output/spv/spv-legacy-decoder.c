@@ -277,7 +277,7 @@ spv_series_parse_value_map_entry (struct hmap *map,
                           vme->from);
 
       char *error = spv_map_insert (map, from, vme->to, true,
-                                    &(struct fmt_spec) { FMT_A, 40, 0 });
+                                    &(struct fmt_spec) { .type = FMT_A, .w = 40 });
       if (error)
         return error;
 
@@ -367,7 +367,7 @@ decode_number_format (const struct spvdx_number_format *nf)
   if (d < 0 || d > 15)
     d = 2;
 
-  struct fmt_spec f = (struct fmt_spec) { type, 40, d };
+  struct fmt_spec f = (struct fmt_spec) { .type = type, .w = 40, .d = d };
   fmt_fix_output (&f);
   return f;
 }
@@ -1427,11 +1427,11 @@ apply_styles_to_value (struct pivot_table *table,
 {
   if (sf)
     {
-      if (sf->reset > 0)
+      if (sf->reset > 0 && value->ex)
         {
-          free (value->footnote_indexes);
-          value->footnote_indexes = NULL;
-          value->n_footnotes = 0;
+          free (value->ex->footnote_indexes);
+          value->ex->footnote_indexes = NULL;
+          value->ex->n_footnotes = 0;
         }
 
       struct fmt_spec format = { .w = 0 };
@@ -1476,11 +1476,12 @@ apply_styles_to_value (struct pivot_table *table,
     }
   if (fg || bg)
     {
+      const struct pivot_value_ex *ex = pivot_value_ex (value);
       struct table_area_style area;
       pivot_value_get_style (
         value,
-        value->font_style ? value->font_style : &base_area_style->font_style,
-        value->cell_style ? value->cell_style : &base_area_style->cell_style,
+        ex->font_style ? ex->font_style : &base_area_style->font_style,
+        ex->cell_style ? ex->cell_style : &base_area_style->cell_style,
         &area);
       decode_spvdx_style_incremental (fg, bg, &area);
       pivot_value_set_style (value, &area);
@@ -1996,7 +1997,7 @@ decode_spvdx_table (const struct spvdx_visualization *v, const char *subtype,
 
       if (value->type == PIVOT_VALUE_NUMERIC
           && value->numeric.x == SYSMIS
-          && !value->n_footnotes)
+          && !pivot_value_ex (value)->n_footnotes)
         {
           /* Apparently, system-missing values are just empty cells? */
           pivot_value_destroy (value);

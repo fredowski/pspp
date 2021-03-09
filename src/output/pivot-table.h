@@ -579,7 +579,7 @@ void pivot_table_dump (const struct pivot_table *, int indentation);
 
 /* pivot_value. */
 
-enum pivot_value_type
+enum ATTRIBUTE ((packed)) pivot_value_type
   {
     PIVOT_VALUE_NUMERIC,          /* A value of a numeric variable. */
     PIVOT_VALUE_STRING,           /* A value of a string variable. */
@@ -647,71 +647,76 @@ enum pivot_value_type
 */
 struct pivot_value
   {
-    struct font_style *font_style;
-    struct cell_style *cell_style;
-
-    char **subscripts;
-    size_t n_subscripts;
-
-    size_t *footnote_indexes;
-    size_t n_footnotes;
-
-    enum pivot_value_type type;
+    struct pivot_value_ex *ex;
     union
       {
+        enum pivot_value_type type;
+
         /* PIVOT_VALUE_NUMERIC. */
         struct
           {
-            double x;                 /* The numeric value. */
+            enum pivot_value_type type;
+            enum settings_value_show show; /* Show value or label or both? */
             struct fmt_spec format;   /* Format to display 'x'. */
+            bool honor_small;         /* Honor value of pivot table 'small'? */
+            double x;                 /* The numeric value. */
             char *var_name;           /* May be NULL. */
             char *value_label;        /* May be NULL. */
-            enum settings_value_show show; /* Show value or label or both? */
-            bool honor_small;         /* Honor value of pivot table 'small'? */
           }
         numeric;
 
         /* PIVOT_VALUE_STRING. */
         struct
           {
-            char *s;                  /* The string value. */
+            enum pivot_value_type type;
+            enum settings_value_show show; /* Show value or label or both? */
             bool hex;                 /* Display in hex? */
+            char *s;                  /* The string value. */
             char *var_name;           /* May be NULL. */
             char *value_label;        /* May be NULL. */
-            enum settings_value_show show; /* Show value or label or both? */
           }
         string;
 
         /* PIVOT_VALUE_VARIABLE. */
         struct
           {
+            enum pivot_value_type type;
+            enum settings_value_show show; /* Show name or label or both? */
             char *var_name;
             char *var_label;          /* May be NULL. */
-            enum settings_value_show show; /* Show name or label or both? */
           }
         variable;
 
         /* PIVOT_VALUE_TEXT. */
         struct
           {
+            enum pivot_value_type type;
+
             /* 'local', 'c', and 'id' must all be nonnull, but they are allowed
                to be the same pointer. */
+            bool user_provided;
             char *local;              /* Localized. */
             char *c;                  /* English. */
             char *id;                 /* Identifier. */
-            bool user_provided;
           }
         text;
 
         /* PIVOT_VALUE_TEMPLATE. */
         struct
           {
+            enum pivot_value_type type;
+
+            /* Arguments.
+
+               The odd ordering in this struct reduces the overall size
+               of struct pivot_value. */
+            unsigned int n_args;
+            struct pivot_argument *args;
+
             /* Both 'local' and 'id' must be nonnull, but they are allowed to
                be the same pointer. */
             char *local;              /* Localized. */
             char *id;                 /* Identifier. */
-            struct pivot_argument *args;
-            size_t n_args;
           }
         template;
       };
@@ -787,6 +792,33 @@ struct pivot_argument
 void pivot_argument_uninit (struct pivot_argument *);
 void pivot_argument_copy (struct pivot_argument *,
                           const struct pivot_argument *);
+
+/* Extra styling for a pivot_value.
+
+   This is logically part of pivot_value itself.  It is broken into a separate
+   structure to save memory because it is rarely used. */
+struct pivot_value_ex
+  {
+    struct font_style *font_style;
+    struct cell_style *cell_style;
+
+    char **subscripts;
+    size_t n_subscripts;
+
+    size_t *footnote_indexes;
+    size_t n_footnotes;
+  };
+
+static inline const struct pivot_value_ex *
+pivot_value_ex (const struct pivot_value *value)
+{
+  static const struct pivot_value_ex empty_ex = { .font_style = NULL };
+  return value->ex ? value->ex : &empty_ex;
+}
+
+struct pivot_value_ex *pivot_value_ex_rw (struct pivot_value *);
+struct pivot_value_ex *pivot_value_ex_clone (const struct pivot_value_ex *);
+void pivot_value_ex_destroy (struct pivot_value_ex *);
 
 /* One piece of data within a pivot table. */
 struct pivot_cell
