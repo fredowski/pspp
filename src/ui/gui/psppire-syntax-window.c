@@ -197,9 +197,14 @@ editor_execute_syntax (const PsppireSyntaxWindow *sw, GtkTextIter start,
 		       GtkTextIter stop)
 {
   PsppireWindow *win = PSPPIRE_WINDOW (sw);
-  struct lex_reader *reader = lex_reader_for_gtk_text_buffer (GTK_TEXT_BUFFER (sw->buffer), start, stop);
+  struct lex_reader *reader = lex_reader_for_gtk_text_buffer (
+    GTK_TEXT_BUFFER (sw->buffer), start, stop, sw->syntax_mode);
 
-  lex_reader_set_file_name (reader, psppire_window_get_filename (win));
+  const gchar *filename = psppire_window_get_filename (win);
+  /* TRANSLATORS: This is part of a filename.  Please avoid whitespace. */
+  gchar *untitled = xasprintf ("%s.sps", _("Untitled"));
+  lex_reader_set_file_name (reader, filename ? filename : untitled);
+  free (untitled);
 
   execute_syntax (psppire_default_data_window (), reader);
 }
@@ -514,6 +519,24 @@ on_run_current_line (PsppireSyntaxWindow *se)
 
 
 
+static void
+on_syntax (GAction *action, GVariant *param, PsppireSyntaxWindow *sw)
+{
+  g_action_change_state (action, param);
+  GVariant *new_state = g_action_get_state (action);
+
+  const gchar *what = g_variant_get_string (new_state, NULL);
+  if (0 == g_strcmp0 (what, "auto"))
+    sw->syntax_mode = LEX_SYNTAX_AUTO;
+  else if (0 == g_strcmp0 (what, "interactive"))
+    sw->syntax_mode = LEX_SYNTAX_INTERACTIVE;
+  else if (0 == g_strcmp0 (what, "batch"))
+    sw->syntax_mode = LEX_SYNTAX_BATCH;
+  else
+    g_warn_if_reached ();
+}
+
+
 /* Append ".sps" to FILENAME if necessary.
    The returned result must be freed when no longer required.
  */
@@ -760,6 +783,7 @@ psppire_syntax_window_init (PsppireSyntaxWindow *window)
 		NULL);
 
   window->encoding = NULL;
+  window->syntax_mode = LEX_SYNTAX_AUTO;
 
   window->cliptext = NULL;
   window->dispose_has_run = FALSE;
@@ -948,6 +972,13 @@ psppire_syntax_window_init (PsppireSyntaxWindow *window)
 			      G_CALLBACK (on_run_to_end), window);
 
     g_action_map_add_action (G_ACTION_MAP (window), G_ACTION (run_to_end));
+  }
+
+  {
+    GSimpleAction *act_syntax = g_simple_action_new_stateful ("syntax", G_VARIANT_TYPE_STRING,
+								 g_variant_new_string ("auto"));
+    g_signal_connect (act_syntax, "activate", G_CALLBACK (on_syntax), window);
+    g_action_map_add_action (G_ACTION_MAP (window), G_ACTION (act_syntax));
   }
 
   gtk_menu_shell_append (GTK_MENU_SHELL (menubar),
