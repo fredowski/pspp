@@ -43,7 +43,8 @@ POFILES = \
 	po/th.po \
 	po/tr.po \
 	po/uk.po \
-	po/zh_CN.po
+	po/zh_CN.po \
+	po/zh_TW.po
 
 LOCALPOFILES = po/cs.po
 
