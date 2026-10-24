@@ -681,7 +681,16 @@ normality_report (const struct examine *cmd, int iact_idx)
 
       for (size_t i = 0; i < n_cats; ++i)
         {
-          indexes[1] = i;
+          /* The category indexes belong to the interaction dimensions
+             (as in descriptives_report).  "indexes[1] = i" overwrote the
+             dependent-variable index when there is no factor, so all
+             variables landed in the first row. */
+          for (size_t j = 0; j < iact->n_vars; j++)
+            {
+              int idx = categoricals_get_value_index_by_category_real (
+                cmd->cats, iact_idx, i, j);
+              indexes[table->n_dimensions - 2 - j] = idx;
+            }
 
           const struct exploratory_stats *es
             = categoricals_get_user_data_by_category_real (

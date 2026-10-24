@@ -1568,3 +1568,33 @@ AT_CHECK([pspp -O format=csv examine.sps], [1], [dnl
       |                 ^~~~~~~"
 ])
 AT_CLEANUP
+
+
+dnl without BY: "Tests of Normality" shows one row with mixed-up values
+AT_SETUP([EXAMINE -- No Factor])
+
+AT_DATA([examine-no-factor.sps], [dnl
+DATA LIST FREE /a b g.
+BEGIN DATA
+2 1 1   4 1 1   4 2 1   5 2 2   6 3 2   7 3 2   8 3 3   9 10 3   12 20 3   15 40 3
+END DATA.
+
+EXAMINE VARIABLES = a b /PLOT NPPLOT
+])
+
+AT_CHECK([pspp -O format=csv examine-no-factor.sps], [0], [dnl
+Table: Case Processing Summary
+,Cases,,,,,
+,Valid,,Missing,,Total,
+,N,Percent,N,Percent,N,Percent
+a,10,100.0%,0,.0%,10,100.0%
+b,10,100.0%,0,.0%,10,100.0%
+
+Table: Tests of Normality
+,Shapiro-Wilk,,
+,Statistic,df,Sig.
+a,.95,10,.61
+b,.66,10,.00
+])
+
+AT_CLEANUP
