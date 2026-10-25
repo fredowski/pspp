@@ -437,8 +437,8 @@ Numeric or string variables are permissible.
 If the @subcmd{ID} subcommand is not given, then the case number is used for
 labelling.
 
-The @subcmd{CINTERVAL} subcommand specifies the confidence interval to use in
-calculation of the descriptives command.  The default is 95%.
+The @subcmd{CINTERVAL} subcommand specifies the confidence interval, as a percentage,
+to use in the calculation of the descriptives command.  The default is 95%.
 
 @cindex percentiles
 The @subcmd{PERCENTILES} subcommand specifies which percentiles are to be calculated,

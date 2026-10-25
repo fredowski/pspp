@@ -1687,7 +1687,13 @@ cmd_examine (struct lexer *lexer, struct dataset *ds)
           if (!lex_force_num (lexer))
             goto error;
 
-          examine.conf = lex_number (lexer);
+          examine.conf = 0.01 * lex_number (lexer);
+          if (examine.conf > 1.0 || examine.conf < 0.0)
+            {
+              lex_error (lexer,
+                         _("CINTERVAL must be lie between 0 and 100, inclusive."));
+              goto error;
+            }
           lex_get (lexer);
         }
       else if (lex_match_id (lexer, "ID"))

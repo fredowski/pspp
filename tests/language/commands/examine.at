@@ -1598,3 +1598,53 @@ b,.66,10,.00
 ])
 
 AT_CLEANUP
+
+
+
+AT_SETUP([EXAMINE -- CINTERVAL])
+
+AT_DATA([examine-cinterval.sps], [dnl
+DATA LIST  NOTABLE LIST /a.
+BEGIN DATA
+2
+4
+4
+5
+6
+7
+8
+9
+12
+15
+END DATA.
+
+EXAMINE VARIABLES = a
+   /STATISTICS DESCRIPTIVES
+   /CINTERVAL 90.
+])
+
+AT_CHECK([pspp -O format=csv examine-cinterval.sps], [0], [dnl
+Table: Case Processing Summary
+,Cases,,,,,
+,Valid,,Missing,,Total,
+,N,Percent,N,Percent,N,Percent
+a,10,100.0%,0,.0%,10,100.0%
+
+Table: Descriptives
+,,,Statistic,Std. Error
+a,Mean,,7.20,1.25
+,90% Confidence Interval for Mean,Lower Bound,4.90,
+,,Upper Bound,9.50,
+,5% Trimmed Mean,,7.06,
+,Median,,6.50,
+,Variance,,15.73,
+,Std. Deviation,,3.97,
+,Minimum,,2.00,
+,Maximum,,15.00,
+,Range,,13.00,
+,Interquartile Range,,5.75,
+,Skewness,,.83,.69
+,Kurtosis,,.25,1.33
+])
+
+AT_CLEANUP
