@@ -157,19 +157,19 @@ Every portable file begins with a 464-byte header, consisting of a
 200-byte collection of vanity splash strings, followed by a 256-byte
 character set translation table, followed by an 8-byte tag string.
 
-The 200-byte segment is divided into five 40-byte sections, each of
-which represents the string @code{@var{charset} SPSS PORT FILE} in a
-different character set encoding, where @var{charset} is the name of
-the character set used in the file, e.g.@: @code{ASCII} or
-@code{EBCDIC}.  Each string is padded on the right with spaces in its
-respective character set.
+The 200 bytes of splash strings are divided into five 40-byte
+sections, each of which is supposed to represent the string
+@code{@var{charset} SPSS PORT FILE} in a different character set
+encoding1, where @var{charset} is the name of the character set used
+in the file, e.g. @code{ASCII} or @code{EBCDIC}.  Each string is
+padded on the right with spaces in its respective character set.
 
-It appears that these strings exist only to inform those who might view
-the file on a screen, and that they are not parsed by SPSS products.
-Thus, they can be safely ignored.  For those interested, the strings are
-supposed to be in the following character sets, in the specified order:
-EBCDIC, 7-bit ASCII, CDC 6-bit ASCII, 6-bit ASCII, Honeywell 6-bit
-ASCII.
+It appears that these strings exist only to inform those who might
+view the file on a screen, letting them know what character set the
+file is in regardless of how they are viewing it, and that they are
+not parsed by SPSS products. Thus, they can be safely ignored. It is
+reasonable to simply write out @code{ASCII SPSS PORT FILE} five times,
+each time padded to 40 bytes.
 
 The 256-byte segment describes a mapping from the character set used in
 the portable file to an arbitrary character set having characters at the
