@@ -502,6 +502,7 @@ output_set_page_setup (const struct page_setup *ps)
 
 extern const struct output_driver_factory csv_driver_factory;
 extern const struct output_driver_factory html_driver_factory;
+extern const struct output_driver_factory json_driver_factory;
 extern const struct output_driver_factory list_driver_factory;
 extern const struct output_driver_factory odt_driver_factory;
 extern const struct output_driver_factory pdf_driver_factory;
@@ -517,6 +518,7 @@ static const struct output_driver_factory *factories[] =
     &txt_driver_factory,
     &list_driver_factory,
     &html_driver_factory,
+    &json_driver_factory,
     &csv_driver_factory,
     &odt_driver_factory,
     &spv_driver_factory,

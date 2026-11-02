@@ -69,6 +69,7 @@ src_output_liboutput_la_SOURCES = \
 	src/output/html.c \
 	src/output/journal.c \
 	src/output/journal.h \
+	src/output/json.c \
 	src/output/measure.c \
 	src/output/measure.h \
 	src/output/msglog.c \
