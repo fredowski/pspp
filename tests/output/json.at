@@ -29,6 +29,7 @@ foo.
 ])
 AT_CHECK([pspp -o out.json test.sps], [1], [ignore], [ignore])
 AT_CHECK([cat out.json], [0], [dnl
+{"type":"header","version":1}
 {"type":"syntax","text":"set printback=on."}
 {"type":"syntax","text":"data list notable list /x y."}
 {"type":"syntax","text":"begin data.\n1 2.5\nend data."}
@@ -46,6 +47,7 @@ echo 'quote " backslash \ tab ' + x'09' + ' del ' + x'7f' + ' umlaut ü check �
 ])
 AT_CHECK([pspp -o out.json test.sps])
 AT_CHECK([cat out.json], [0], [dnl
+{"type":"header","version":1}
 {"type":"log","text":"quote \" backslash \\ tab \t del  umlaut ü check ✓ astral 😀"}
 ])
 AT_CLEANUP
@@ -77,6 +79,7 @@ correlations a b /print=twotail nosig.
 ])
 AT_CHECK([pspp -o out.json test.sps])
 AT_CHECK([cat out.json], [0], [dnl
+{"type":"header","version":1}
 {"type":"table","label":"Correlations","layer":@<:@@:>@,"title":{"r":0,"c":0,"rs":1,"cs":1,"h":false,"a":"c","t":"Correlations","x":true,"b":true},"rows":7,"cols":4,"headRows":@<:@1,0@:>@,"headCols":@<:@2,0@:>@,"cells":@<:@{"r":0,"c":0,"rs":1,"cs":1,"h":true,"a":"c","t":"","x":true,"b":true},{"r":0,"c":1,"rs":1,"cs":1,"h":true,"a":"c","t":"","x":true,"b":true},{"r":0,"c":2,"rs":1,"cs":1,"h":true,"a":"c","t":"a"},{"r":0,"c":3,"rs":1,"cs":1,"h":true,"a":"c","t":"b"},{"r":1,"c":0,"rs":3,"cs":1,"h":true,"a":"l","t":"a"},{"r":1,"c":1,"rs":1,"cs":1,"h":true,"a":"l","t":"Pearson Correlation","x":true},{"r":1,"c":2,"rs":1,"cs":1,"h":false,"a":"r","t":"1.000","n":1},{"r":1,"c":3,"rs":1,"cs":1,"h":false,"a":"r","t":".997","n":0.99669087836688675,"fn":@<:@"a"@:>@},{"r":2,"c":1,"rs":1,"cs":1,"h":true,"a":"l","t":"Sig. (2-tailed)","x":true},{"r":2,"c":2,"rs":1,"cs":1,"h":false,"a":"l","t":"","x":true},{"r":2,"c":3,"rs":1,"cs":1,"h":false,"a":"r","t":".000","n":1.2077174439011253e-06},{"r":3,"c":1,"rs":1,"cs":1,"h":true,"a":"l","t":"N","x":true},{"r":3,"c":2,"rs":1,"cs":1,"h":false,"a":"r","t":"7","n":7},{"r":3,"c":3,"rs":1,"cs":1,"h":false,"a":"r","t":"7","n":7},{"r":4,"c":0,"rs":3,"cs":1,"h":true,"a":"l","t":"b"},{"r":4,"c":1,"rs":1,"cs":1,"h":true,"a":"l","t":"Pearson Correlation","x":true},{"r":4,"c":2,"rs":1,"cs":1,"h":false,"a":"r","t":".997","n":0.99669087836688675,"fn":@<:@"a"@:>@},{"r":4,"c":3,"rs":1,"cs":1,"h":false,"a":"r","t":"1.000","n":1.0000000000000002},{"r":5,"c":1,"rs":1,"cs":1,"h":true,"a":"l","t":"Sig. (2-tailed)","x":true},{"r":5,"c":2,"rs":1,"cs":1,"h":false,"a":"r","t":".000","n":1.2077174439011253e-06},{"r":5,"c":3,"rs":1,"cs":1,"h":false,"a":"l","t":"","x":true},{"r":6,"c":1,"rs":1,"cs":1,"h":true,"a":"l","t":"N","x":true},{"r":6,"c":2,"rs":1,"cs":1,"h":false,"a":"r","t":"7","n":7},{"r":6,"c":3,"rs":1,"cs":1,"h":false,"a":"r","t":"7","n":7}@:>@,"caption":null,"footnotes":@<:@{"r":0,"c":0,"rs":1,"cs":1,"h":false,"a":"l","t":"a. Significant at .05 level","x":true}@:>@}
 ])
 AT_CLEANUP
@@ -106,7 +109,7 @@ reliability /variables=x y z.
 AT_DATA([check.py], [dnl
 import json, sys
 
-TYPES = {"title", "syntax", "log", "message", "chart", "image", "table"}
+TYPES = {"header", "title", "syntax", "log", "message", "chart", "image", "table"}
 counts = {}
 for lineno, line in enumerate(open(sys.argv@<:@1@:>@, encoding="utf-8"), 1):
     item = json.loads(line)
@@ -143,6 +146,7 @@ for t in sorted(counts):
 ])
 AT_CHECK([pspp -o out.json test.sps], [0], [ignore])
 AT_CHECK([python3 -I check.py out.json], [0], [dnl
+header 1
 table 12
 title 1
 ])
@@ -163,7 +167,7 @@ list.
 AT_DATA([check.py], [dnl
 import json, sys
 
-TYPES = {"title", "syntax", "log", "message", "chart", "image", "table"}
+TYPES = {"header", "title", "syntax", "log", "message", "chart", "image", "table"}
 counts = {}
 for lineno, line in enumerate(open(sys.argv@<:@1@:>@, encoding="utf-8"), 1):
     item = json.loads(line)
@@ -200,6 +204,7 @@ for t in sorted(counts):
 ])
 AT_CHECK([pspp -o out.json test.sps])
 AT_CHECK([python3 -I check.py out.json], [0], [dnl
+header 1
 table 1
 ])
 AT_CHECK([grep -c '"rows":2,"cols":300,' out.json], [0], [dnl
@@ -215,7 +220,8 @@ end data.
 frequencies x.
 ])
 AT_CHECK([pspp -o out.json test.sps], [0], [ignore])
-AT_CHECK([test -f out.json && wc -c < out.json | tr -d ' '], [0], [0
+AT_CHECK([cat out.json], [0], [dnl
+{"type":"header","version":1}
 ])
 AT_CLEANUP
 
@@ -247,13 +253,19 @@ AT_DATA([test.sps], [dnl
 echo 'hi'.
 ])
 AT_CHECK([pspp -o out.json test.sps])
-AT_CHECK([cat out.json], [0], [{"type":"log","text":"hi"}
+AT_CHECK([cat out.json], [0], [dnl
+{"type":"header","version":1}
+{"type":"log","text":"hi"}
 ])
 AT_CHECK([pspp -o out.txt -O format=json test.sps])
-AT_CHECK([cat out.txt], [0], [{"type":"log","text":"hi"}
+AT_CHECK([cat out.txt], [0], [dnl
+{"type":"header","version":1}
+{"type":"log","text":"hi"}
 ])
 AT_CHECK([pspp -O format=json test.sps])
-AT_CHECK([cat pspp.json], [0], [{"type":"log","text":"hi"}
+AT_CHECK([cat pspp.json], [0], [dnl
+{"type":"header","version":1}
+{"type":"log","text":"hi"}
 ])
 AT_CHECK([pspp -o out2.json -O bogus=1 test.sps], [0], [ignore], [dnl
 out2.json: unknown option `bogus'

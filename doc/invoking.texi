@@ -551,9 +551,22 @@ flushed as soon as the output item is produced, so a program can read
 the output while a syntax file is still running.  Numbers are always
 written with a period as the decimal point, whatever the locale.
 
+The first object in every file is a header, which gives the version of
+the format as an integer: @code{@{"type":"header","version":1@}}.
+Programs that read the output should check the version and refuse, or at
+least warn about, a version they do not know.  The version is increased
+only for a change that could break an existing reader, such as renaming
+or removing a member or changing what it means.  Adding a new member to
+an object, or a new value of @code{type}, does not change the version, so
+readers should ignore members and item types they do not recognize.
+
 Every object has a @code{type} member, which is one of the following:
 
 @table @code
+@item header
+The first object of the file.  The @code{version} member is the version
+of the format, described above.
+
 @item title
 A heading, such as the ones some commands print above their tables.  The
 @code{text} member is the text and @code{level} is the nesting depth of

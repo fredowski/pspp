@@ -22,6 +22,7 @@
    the locale.  The format is documented in the PSPP manual.
 
    Item shapes:
+     {"type":"header","version":N}   (always the first object)
      {"type":"title","level":N,"text":"..."}
      {"type":"syntax","text":"..."}
      {"type":"log","text":"..."}
@@ -65,6 +66,10 @@
 
 #include "gettext.h"
 #define _(msgid) gettext (msgid)
+
+/* Version of the output format.  Increase it whenever a change would break a
+   program written for the previous version. */
+#define JSON_FORMAT_VERSION "1"
 
 #define H TABLE_HORZ
 #define V TABLE_VERT
@@ -413,6 +418,10 @@ json_create (struct file_handle *fh, enum settings_output_devices device_type,
                  fh_get_file_name (fh));
       return NULL;
     }
+
+  /* The first object in the stream tells readers which version of the
+     format follows.  See "JSON Output Options" in the manual. */
+  fputs ("{\"type\":\"header\",\"version\":" JSON_FORMAT_VERSION "}\n", file);
 
   struct json_driver *json = xmalloc (sizeof *json);
   *json = (struct json_driver) {
