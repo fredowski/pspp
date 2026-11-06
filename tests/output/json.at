@@ -37,7 +37,36 @@ AT_CHECK([cat out.json], [0], [dnl
 {"type":"log","text":"a log line"}
 {"type":"syntax","text":"list."}
 {"type":"table","label":"Data List","layer":@<:@@:>@,"title":{"r":0,"c":0,"rs":1,"cs":1,"h":false,"a":"c","t":"Data List","x":true,"b":true},"rows":2,"cols":2,"headRows":@<:@1,0@:>@,"headCols":@<:@0,0@:>@,"cells":@<:@{"r":0,"c":0,"rs":1,"cs":1,"h":true,"a":"c","t":"x"},{"r":0,"c":1,"rs":1,"cs":1,"h":true,"a":"c","t":"y"},{"r":1,"c":0,"rs":1,"cs":1,"h":false,"a":"r","t":"1.00","n":1},{"r":1,"c":1,"rs":1,"cs":1,"h":false,"a":"r","t":"2.50","n":2.5}@:>@,"caption":null,"footnotes":@<:@@:>@}
-{"type":"message","severity":"error","text":"test.sps:8.1-8.3: error: Unknown command `foo'.\n    8 | foo.\n      | ^~~"}
+{"type":"message","severity":"error","text":"test.sps:8.1-8.3: error: Unknown command `foo'.\n    8 | foo.\n      | ^~~","location":{"file":"test.sps","first_line":8,"last_line":8,"first_column":1,"last_column":3}}
+])
+AT_CLEANUP
+
+AT_SETUP([JSON driver - message locations])
+AT_DATA([test.sps], [dnl
+data list notable list /x.
+begin data.
+1
+end data.
+descriptives x
+  /bogus
+  /another.
+frequencies
+  variables=y.
+compute z = (1 +
+  2.
+echo 'not reached'.
+])
+AT_CHECK([pspp -o out.json test.sps], [1], [ignore], [ignore])
+dnl The messages are the only items of this type, so they can be picked
+dnl out with grep.  Columns are given where the message points at text,
+dnl and left out where it refers to a line only.
+AT_CHECK([grep -o '"location":.*' out.json], [0], [dnl
+"location":{"file":"test.sps","first_line":6,"last_line":6,"first_column":4,"last_column":8}}
+"location":{"file":"test.sps","first_line":9,"last_line":9,"first_column":13,"last_column":13}}
+"location":{"file":"test.sps","first_line":11,"last_line":11,"first_column":4,"last_column":4}}
+"location":{"file":"test.sps","first_line":12,"last_line":12}}
+])
+AT_CHECK([grep -c '"type":"message"' out.json], [0], [4
 ])
 AT_CLEANUP
 

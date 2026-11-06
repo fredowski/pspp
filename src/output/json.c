@@ -26,7 +26,9 @@
      {"type":"title","level":N,"text":"..."}
      {"type":"syntax","text":"..."}
      {"type":"log","text":"..."}
-     {"type":"message","severity":"error|warning|note","text":"..."}
+     {"type":"message","severity":"error|warning|note","text":"...",
+      "location":{"file":"...","first_line":N,"last_line":N,
+                  "first_column":N,"last_column":N}?}
      {"type":"chart","title":"..."}
      {"type":"image"}
      {"type":"table","label":"...","layer":[...],"title":CELL|null,
@@ -62,6 +64,7 @@
 #include "output/table-provider.h"
 
 #include "gl/c-snprintf.h"
+#include "gl/minmax.h"
 #include "gl/xalloc.h"
 
 #include "gettext.h"
@@ -132,6 +135,50 @@ put_string (FILE *f, const char *s)
         }
     }
   putc ('"', f);
+}
+
+/* Writes the "location" member of a message, preceded by a comma, if LOC says
+   where in a syntax file the message comes from.  Each member is written
+   only if PSPP knows it; a message that gives no file or line gets no
+   "location" at all.  The values are the ones that msg_location_format()
+   prints, e.g. "test.sps:8.1-8.3" is file "test.sps", lines 8 to 8, columns
+   1 to 3. */
+static void
+put_location (FILE *f, const struct msg_location *loc)
+{
+  if (!loc)
+    return;
+
+  int first_line = loc->start.line;
+  int last_line = MAX (first_line, loc->end.line);
+  int first_column = loc->start.column;
+  int last_column = MAX (first_column, loc->end.column);
+  if (first_line <= 0)
+    first_line = last_line = 0;
+  if (first_column <= 0)
+    first_column = last_column = 0;
+
+  if (!loc->file_name && !first_line)
+    return;
+
+  fputs (",\"location\":{", f);
+  const char *sep = "";
+  if (loc->file_name)
+    {
+      fputs ("\"file\":", f);
+      put_string (f, loc->file_name);
+      sep = ",";
+    }
+  if (first_line)
+    {
+      fprintf (f, "%s\"first_line\":%d,\"last_line\":%d", sep,
+               first_line, last_line);
+      sep = ",";
+    }
+  if (first_column)
+    fprintf (f, "%s\"first_column\":%d,\"last_column\":%d", sep,
+             first_column, last_column);
+  putc ('}', f);
 }
 
 static void
@@ -338,6 +385,7 @@ json_submit__ (struct output_driver *driver, const struct output_item *item,
                            ? "warning" : "note");
         fprintf (f, "{\"type\":\"message\",\"severity\":\"%s\",\"text\":", sev);
         put_string (f, s);
+        put_location (f, item->message->location);
         fputs ("}\n", f);
         free (s);
       }

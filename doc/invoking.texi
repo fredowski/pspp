@@ -583,7 +583,33 @@ Log text, such as the contents of a @cmd{ECHO} command.  The
 An error, warning, or note.  The @code{severity} member is
 @code{"error"}, @code{"warning"}, or @code{"note"}, and @code{text} is
 the message as it would be printed on a terminal, including the
-location in the syntax file.
+location in the syntax file.  If @pspp{} knows where the message comes
+from, there is also a @code{location} member, an object that gives the
+place in the syntax file without the need to parse the text:
+
+@table @code
+@item file
+The name of the syntax file.
+
+@item first_line
+@itemx last_line
+The first and last line, counting from 1.  They are equal if the message
+refers to a single line.
+
+@item first_column
+@itemx last_column
+The first and last column on those lines, counting from 1.  Given only if
+the message points at specific text, not just at lines.
+@end table
+
+Members for which @pspp{} has no value are left out, and a message with
+nothing to report has no @code{location}.  For example, an error at
+columns 1 to 3 of line 8 of @file{test.sps} has:
+
+@example
+"location":@{"file":"test.sps","first_line":8,"last_line":8,
+            "first_column":1,"last_column":3@}
+@end example
 
 @item chart
 A chart.  Only the @code{title} member is given; the chart itself is not
